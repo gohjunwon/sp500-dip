@@ -21,7 +21,7 @@ async function init() {
     Object.assign(D, { meta, fund, est, dates: pr.dates, p: pr.p, updT: upd.t });
     $('upd').textContent = '갱신 ' + new Date(upd.t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const opt = f => fetchJSON(f).catch(() => null);
-    [D.risk, D.liq, D.macro, D.live] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json')]);
+    [D.risk, D.liq, D.macro, D.live, D.model] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json'), opt('model.json')]);
     D.risk = D.risk || {}; D.liq = D.liq || {};
     opt('desc.json').then(d => { D.desc = d; run() });
     run();
@@ -177,12 +177,14 @@ function screen(shock, ai, bt, shockDD) {
       { hit: sdd != null && sdd <= -20, txt: sdd == null ? '④ 악재 크기 자료없음' : `④ 악재 크기 ${fmt(sdd, 0)}` },
     ];
     r.score = sc.filter(x => x.hit).length; r.sc = sc;
+    // 1년 내 회복 확률: 과거 10년 중 점수·회복 정도가 비슷했던 종목이 1년 안에 악재 전 최고가를 회복한 비율
+    if (D.model) { const bins = D.model.bins; let rb = bins.findIndex(b => r.rec < b); if (rb < 0) rb = bins.length - 1; const t = D.model.table[r.score][rb]; r.prob = t.p; r.probN = t.n }
     if (r.score < V('vScore')) continue;
     const all = tests.concat(extra);
     if (all.some(t => t.st === 'bad' || (t.st === 'unk' && !unkPass))) continue;
     res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
   }
-  res.sort((x, y) => y.score - x.score || x.warn - y.warn || y.up - x.up);
+  res.sort((x, y) => (y.prob ?? 0) - (x.prob ?? 0) || y.score - x.score || x.warn - y.warn || y.up - x.up);
   return { res, cand, secMed, i0, b };
 }
 
@@ -244,7 +246,7 @@ async function run() {
   $('secBox').style.display = '';
   $('secs').innerHTML = Object.entries(secMed).sort((a, b) => a[1] - b[1]).map(([k, v]) => `<span class="b">${k} ${fmt(v, 0)}</span>`).join('');
   const minGap = V('minGap');
-  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과${V('vScore') > 0 ? ` + 회복 가능성 ${V('vScore')}점 이상` : ''} <b>${res.length}</b>종목 <span class="note">(회복 가능성 점수 높은 순 → 노란색 적은 순 → 회복 여력 큰 순)</span>`;
+  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과${V('vScore') > 0 ? ` + 회복 가능성 ${V('vScore')}점 이상` : ''} <b>${res.length}</b>종목 <span class="note">(1년 내 회복 확률 높은 순)</span>`;
   const mix = {}; res.forEach(r => mix[r.m.s] = (mix[r.m.s] || 0) + 1);
   $('mix').innerHTML = res.length ? `결과 업종 분포: ${Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')} — 한 업종·한 종목에 몰리지 않게 나눠 담는 것이 일반적인 위험 관리 방법입니다.` : '';
   const badge = t => `<span class="b ${t.st}">${t.st === 'ok' ? '✓' : t.st === 'bad' ? '✗' : t.st === 'warn' ? '△' : t.st === 'info' ? '·' : '?'} ${t.txt}</span>`;
@@ -252,11 +254,11 @@ async function run() {
     const rk = D.risk[r.s] || {}; const yq = r.s.replace('.', '-');
     const news = (rk.news || []).map(n => `<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.k || n.t)} <small style="color:var(--mute)">· ${esc(n.s)} ${esc(n.d)}</small></a>`).join('');
     return `<div class="card"><div class="top"><div><span class="tk"><a href="https://finance.yahoo.com/quote/${yq}" target="_blank">${r.s}</a></span>
-   <span class="nm"> ${esc(r.m.n)}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up, 0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
+   <span class="nm"> ${esc(r.m.n)}</span></div><div style="text-align:right">${r.prob != null ? `<div class="prob">회복 확률 ${Math.round(r.prob * 100)}%</div>` : ''}<div class="up">회복 시 ${fmt(r.up, 0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
    ${D.desc && D.desc[r.s] ? `<div class="desc">${esc(D.desc[r.s])}</div>` : ''}
    <div class="sell">💰 매도 적정가 · 1차 <b>$${r.tg.t1.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t1, r.now), 0)}, 낙폭 절반 회복)</small> · 2차 <b>$${r.tg.t2.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t2, r.now), 0)}, 악재 전 최고가)</small>${r.tg.per && r.tg.per > r.now ? ` · 참고 <b>$${r.tg.per.toFixed(2)}</b> <small>(평소 PER 기준)</small>` : ''}</div>
    <div class="px">${r.m.s} · ${esc(r.m.i)}<br>현재가 <b>$${r.now.toFixed(2)}</b> ${r.liveQ ? `<small>(${r.liveQ[2]} ${r.liveQ[1]} 미국 동부시간, 약 15분 지연 · 최근 일봉 종가 $${r.close.toFixed(2)})</small>` : `<small>(${D.dates[D.dates.length - 1].slice(5)} 종가)</small>`}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)})${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
-   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}</div>
+   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.prob != null ? `<span class="b info">과거 비슷한 종목 ${r.probN}건 중 1년 내 회복 ${Math.round(r.prob * 100)}%</span>` : ''}${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}</div>
    <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>
    <details class="more"><summary>최근 회사 뉴스</summary>${news || '<div class="note">저장된 뉴스 없음</div>'}

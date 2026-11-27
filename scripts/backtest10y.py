@@ -178,6 +178,28 @@ def main():
            "through": dates[-1].strftime("%Y-%m-%d")}
     C.save("backtest10y.json", out)
     print("picks", len(picks))
+    build_model(picks)
+
+
+def build_model(picks, k=10):
+    """1년 내 회복 확률 표: 회복 가능성 점수(0~4) × 진입 시 회복 정도(60/70/80/90% 구간)"""
+    import pandas as pd
+    x = pd.DataFrame(picks)
+    x = x[x["full1y"]].copy()
+    fin = x.sec.isin(["금융", "부동산"])
+    x["score"] = (x.mom12 > 0).astype(int) + (fin | (x.de <= 100)).astype(int) + \
+        (x.vol60 <= 30).astype(int) + (x.shock_dd <= -20).astype(int)
+    x["rb"] = pd.cut(x.rec_entry, [0, 60, 70, 80, 90], labels=False).fillna(0).astype(int)
+    tab = {}
+    for s in range(5):
+        xs = x[x.score == s]
+        base = xs.hit1y.mean() if len(xs) else x.hit1y.mean()
+        tab[s] = {}
+        for b in range(4):
+            c = xs[xs.rb == b]
+            tab[s][b] = {"p": round(float((c.hit1y.sum() + k * base) / (len(c) + k)), 3), "n": int(len(c))}
+    C.save("model.json", {"table": tab, "bins": [60, 70, 80, 90], "n": int(len(x)),
+                          "base": round(float(x.hit1y.mean()), 3), "k": k})
 
 
 if __name__ == "__main__":
