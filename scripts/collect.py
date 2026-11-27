@@ -133,7 +133,7 @@ def live_quotes(symbols):
     import yfinance as yf
     from zoneinfo import ZoneInfo
     ymap = {s: s.replace(".", "-") for s in symbols}
-    raw = yf.download(list(ymap.values()), period="2d", interval="5m", prepost=True,
+    raw = yf.download(list(ymap.values()), period="5d", interval="5m", prepost=True,
                       progress=False, threads=True)["Close"]
     et = ZoneInfo("America/New_York")
     q = {}
