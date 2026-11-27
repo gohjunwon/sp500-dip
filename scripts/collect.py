@@ -119,7 +119,6 @@ def prices(symbols):
 
 
 # ---------- 2-1. 악재 자동 찾기 ----------
-MARKET_THR, SECTOR_THR = 0.10, 0.15  # 2달 안에 시장 중간값 10%↓ 또는 업종 중간값 15%↓
 KNOWN = [  # 이름 붙이기용 (날짜 ±25일 안이면 이 이름 사용)
     ("2020-02-21", "코로나19 팬데믹"), ("2022-01-04", "금리 인상 충격"),
     ("2022-05-05", "금리 인상·인플레이션"), ("2023-03-09", "SVB 은행 파산"),
@@ -181,10 +180,10 @@ def shock_news(e, n=5):
     d = date.fromisoformat(e["d"])
     d_from, d_to = (d - timedelta(days=3)).isoformat(), (d + timedelta(days=7)).isoformat()
     first = e["who"].split("·")[0].replace(" 등", "")
-    if first == "시장 전체":
+    en = e.get("en", "Stock market")
+    if en == "Stock market":
         queries = ["stock market sell-off", "stocks plunge Wall Street", "S&P 500 falls why"]
     else:
-        en = SECTOR_EN.get(first, first)
         queries = [f"{en} stocks plunge", f"{en} stocks sell-off", "stock market sell-off"]
     out, seen = [], set()
     for q in queries:
@@ -209,19 +208,15 @@ def shock_news(e, n=5):
     return out
 
 
-def find_shocks(df, meta, keep=6):
+def _detect(df, meta, rets, groups, m_thr, s_thr, i_thr, since):
     import pandas as pd
-    rets = df.pct_change(fill_method=None)
-    groups = {"시장 전체": list(df.columns)}
-    for s in df.columns:
-        groups.setdefault(meta[s]["s"], []).append(s)
     events = []
     for g, cols in groups.items():
         idx = (1 + rets[cols].median(axis=1).fillna(0)).cumprod()
-        thr = MARKET_THR if g == "시장 전체" else SECTOR_THR
+        thr = m_thr if g == "시장 전체" else (s_thr if g in SECTOR_EN else i_thr)
         dates = idx.index
         dd = idx / idx.rolling("61D").max() - 1
-        i = 0
+        i = int((dates < pd.Timestamp(since)).sum())
         while i < len(idx):
             if dd.iloc[i] <= -thr:
                 t = dates[i]
@@ -233,16 +228,16 @@ def find_shocks(df, meta, keep=6):
                 mid = idx[(dates >= peak_d) & (dates < trough_d)]
                 start_d = mid[mid >= idx[peak_d] * 0.97].index[-1]
                 shock = idx[dates > start_d].index[0]
-                events.append({"d": shock.strftime("%Y-%m-%d"), "g": g, "t": trough_d.strftime("%Y-%m-%d"),
-                               "dd": round(float(seg.min() / idx[peak_d] - 1) * 100, 1)})
-                # 바닥 이후 지수가 회복되거나 20일 지날 때까지 건너뛰기
+                if shock >= pd.Timestamp(since):
+                    events.append({"d": shock.strftime("%Y-%m-%d"), "g": g, "t": trough_d.strftime("%Y-%m-%d"),
+                                   "dd": round(float(seg.min() / idx[peak_d] - 1) * 100, 1)})
                 i = max(i + 1, int((dates <= trough_d + pd.Timedelta(days=20)).sum()))
                 continue
             i += 1
     events.sort(key=lambda e: e["d"])
     merged = []
-    for e in events:  # 30일 안에 겹치는 업종 급락은 하나로
-        if merged and (_days(merged[-1]["d"], e["d"]) <= 30 or e["d"] <= merged[-1]["t"]):
+    for e in events:  # 시작일이 10일 안으로 겹치는 급락은 하나로
+        if merged and _days(merged[-1]["d"], e["d"]) <= 10:
             m = merged[-1]
             if e["g"] not in m["g"]:
                 m["g"].append(e["g"])
@@ -250,12 +245,44 @@ def find_shocks(df, meta, keep=6):
             m["t"] = max(m["t"], e["t"])
         else:
             merged.append({"d": e["d"], "g": [e["g"]], "dd": e["dd"], "t": e["t"]})
+    return merged
+
+
+# 최근 1년 안에서 6개가 될 때까지 기준을 조금씩 낮춤 (시장 %, 업종 %, 세부업종 %)
+TIERS = [(0.10, 0.15, 0.20), (0.08, 0.12, 0.17), (0.06, 0.10, 0.15), (0.05, 0.08, 0.12)]
+
+
+def find_shocks(df, meta, keep=6):
+    rets = df.pct_change(fill_method=None)
+    groups = {"시장 전체": list(df.columns)}
+    sub = {}
+    for s in df.columns:
+        groups.setdefault(meta[s]["s"], []).append(s)
+        sub.setdefault(meta[s]["i"], []).append(s)
+    groups.update({k: v for k, v in sub.items() if len(v) >= 4})  # 종목 4개 이상인 세부업종
+    since = (df.index[-1] - timedelta(days=365)).strftime("%Y-%m-%d")
+    for m_thr, s_thr, i_thr in TIERS:
+        merged = _detect(df, meta, rets, groups, m_thr, s_thr, i_thr, since)
+        if len(merged) >= keep:
+            break
+    # 시장 전체 급락을 먼저, 나머지는 낙폭 큰 순으로 6개
+    merged = sorted(merged, key=lambda m: (0 if "시장 전체" in m["g"] else 1, m["dd"]))[:keep]
+    merged.sort(key=lambda m: m["d"])
+    level = lambda g: 0 if g == "시장 전체" else 1 if g in SECTOR_EN else 2
+    names = load("ko_names.json", {})
     out = []
-    for m in merged[-keep:]:
+    for m in merged:
         name = next((n for d, n in KNOWN if -25 <= _days(m["d"], d) <= max(25, _days(m["d"], m["t"]) + 5)), None)
-        gs = m["g"]
-        who = "시장 전체" if "시장 전체" in gs else "·".join(gs[:2]) + (" 등" if len(gs) > 2 else "")
-        out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "dd": m["dd"]})
+        gs = sorted(m["g"], key=level)
+        en = "Stock market" if gs[0] == "시장 전체" else SECTOR_EN.get(gs[0], gs[0])
+        ko = []
+        for g in gs[:2]:
+            if level(g) == 2 and g not in names:
+                names[g] = translate_ko(g) or g
+            ko.append(names.get(g, g))
+        who = "시장 전체" if gs[0] == "시장 전체" else "·".join(ko) + (" 등" if len(gs) > 2 else "")
+        out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"]})
+    save("ko_names.json", names)
     cached = {x["d"]: x.get("news") for x in load("shocks.json", []) if x.get("news")}
     for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음
         e["news"] = cached.get(e["d"]) or shock_news(e)
