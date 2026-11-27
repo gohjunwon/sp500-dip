@@ -482,7 +482,7 @@ def descriptions(meta):
     import re
     import yfinance as yf
     desc = load("desc.json", {})
-    todo = [s for s in meta if not desc.get(s)]
+    todo = [s for s in meta if not desc.get(s)][:150]  # 한 번에 150개까지 (나머지는 다음 날)
     eng = {}
     for sym in todo:
         try:
