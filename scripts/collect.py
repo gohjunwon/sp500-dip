@@ -444,7 +444,7 @@ def _days(a, b):
     return (date.fromisoformat(b) - date.fromisoformat(a)).days
 
 
-def quarterly_series(facts, tags, unit="USD", ns="us-gaap"):
+def quarterly_series(facts, tags, unit="USD", ns="us-gaap", pure_only=False):
     """여러 태그를 합쳐 {분기말일: 3개월 값}.
     3개월 공시값을 우선 쓰고, 누적(6·9·12개월) 공시만 있으면 앞 누적값을 빼서 계산"""
     sec = facts.get("facts", {}).get(ns, {})
@@ -468,6 +468,8 @@ def quarterly_series(facts, tags, unit="USD", ns="us-gaap"):
         for k, v in tc.items():
             cum.setdefault(k, v[0])
     out = {end: v for (start, end), v in pure.items()}
+    if pure_only:  # 주식 수처럼 더할 수 없는 값은 3개월 공시값만 사용
+        cum = {}
     # 같은 시작일의 누적값들: 3개월 값(있으면)과 누적값을 끝나는 날 순으로 이어 붙여 차이 계산
     by_start = {}
     for (st, en), v in list(pure.items()) + list(cum.items()):
@@ -526,12 +528,19 @@ def _fund_one(facts):
         ni = quarterly_series(facts, NI_TAGS)
         eps_rep = quarterly_series(facts, ["EarningsPerShareDiluted", "EarningsPerShareBasic"], "USD/shares")
         wsh = quarterly_series(facts, ["WeightedAverageNumberOfDilutedSharesOutstanding",
-                                       "WeightedAverageNumberOfSharesOutstandingBasic"], "shares")
+                                       "WeightedAverageNumberOfSharesOutstandingBasic"], "shares", pure_only=True)
+        wsh = {e: v for e, v in wsh.items() if v and v > 0}
+        wk = sorted(wsh)
+
+        def shares_near(e):  # 그 분기 값이 없으면 120일 안의 가장 가까운 이전 분기 값
+            prev = [k for k in wk if k <= e and _days(k, e) <= 120]
+            return wsh[prev[-1]] if prev else None
         # 분기 EPS = 분기 순이익 ÷ 희석 주식 수 (누적값 차감으로 생기는 오류를 피함), 없으면 공시 EPS
         eps = {}
         for e in set(ni) | set(eps_rep):
-            if e in ni and (wsh.get(e) or 0) > 0:
-                eps[e] = round(ni[e] / wsh[e], 4)
+            sh_e = shares_near(e) if e in ni else None
+            if sh_e:
+                eps[e] = round(ni[e] / sh_e, 4)
             elif e in eps_rep:
                 eps[e] = eps_rep[e]
         ocf = quarterly_series(facts, ["NetCashProvidedByUsedInOperatingActivities",
@@ -539,7 +548,6 @@ def _fund_one(facts):
         capex = quarterly_series(facts, ["PaymentsToAcquirePropertyPlantAndEquipment",
                                          "PaymentsToAcquireProductiveAssets"])
         shares = instant_series(facts, "EntityCommonStockSharesOutstanding", "shares", "dei")
-        wsh = {e: v for e, v in wsh.items() if v and v > 0}
         if wsh:  # 표지 주식 수가 없거나 희석 주식 수와 크게 다르면 희석 주식 수 사용
             last_w = wsh[max(wsh)]
             last_s = shares[max(shares)] if shares else None
