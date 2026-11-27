@@ -477,8 +477,37 @@ def estimates(meta):
     print(f"est: {len(est)} tickers")
 
 
+# ---------- 5. 회사 소개 (한 줄, 한국어) ----------
+def descriptions(meta):
+    import re
+    import yfinance as yf
+    desc = load("desc.json", {})
+    todo = [s for s in meta if not desc.get(s)]
+    eng = {}
+    for sym in todo:
+        try:
+            txt = yf.Ticker(sym.replace(".", "-")).info.get("longBusinessSummary") or ""
+        except Exception as e:
+            print("desc fail", sym, e)
+            continue
+        first = re.split(r"(?<!\bInc)(?<!\bCorp)(?<!\bCo)(?<!\bLtd)(?<!\bU\.S)(?<!\bN\.A)(?<!\bNo)\. (?=[A-Z])",
+                         txt.strip(), maxsplit=1)[0].strip().rstrip(".")
+        if first:
+            eng[sym] = first[:220]
+        time.sleep(0.3)
+    syms = list(eng)
+    for i in range(0, len(syms), 12):  # 12개씩 묶어 번역
+        chunk = syms[i:i + 12]
+        for sym, ko in zip(chunk, translate_many([eng[s] for s in chunk])):
+            if ko:
+                desc[sym] = ko
+        time.sleep(2)
+    save("desc.json", desc)
+    print(f"desc: {len(desc)} (new {len(eng)})")
+
+
 def main():
-    steps = sys.argv[1:] or ["meta", "prices", "fund", "est"]
+    steps = sys.argv[1:] or ["meta", "prices", "fund", "est", "desc"]
     meta = constituents()
     if "meta" in steps:
         save("meta.json", {k: {"n": v["n"], "s": v["s"], "i": v["i"]} for k, v in meta.items()})
@@ -489,6 +518,8 @@ def main():
         fundamentals(meta)
     if "est" in steps:
         estimates(meta)
+    if "desc" in steps:
+        descriptions(meta)
     save("updated.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes")})
 
 
