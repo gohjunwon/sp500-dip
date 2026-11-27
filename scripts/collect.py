@@ -123,6 +123,7 @@ KNOWN = [  # 이름 붙이기용 (날짜 ±25일 안이면 이 이름 사용)
     ("2020-02-21", "코로나19 팬데믹"), ("2022-01-04", "금리 인상 충격"),
     ("2022-05-05", "금리 인상·인플레이션"), ("2023-03-09", "SVB 은행 파산"),
     ("2024-08-01", "엔캐리 청산"), ("2025-04-03", "트럼프 상호관세"),
+    ("2026-03-02", "이란 전쟁·호르무즈 해협 봉쇄"),
 ]
 
 
@@ -256,9 +257,9 @@ def _detect(df, meta, rets, groups, m_thr, s_thr, i_thr, since):
                 peak_d = win.idxmax()
                 seg = idx[(dates > peak_d) & (dates <= peak_d + pd.Timedelta(days=60))]
                 trough_d = seg.idxmin()
-                # 급락이 실제로 시작된 날: 고점의 97% 위에 있던 마지막 날의 다음 거래일
+                # 급락이 실제로 시작된 날: 고점의 99% 위에 있던 마지막 날의 다음 거래일
                 mid = idx[(dates >= peak_d) & (dates < trough_d)]
-                start_d = mid[mid >= idx[peak_d] * 0.97].index[-1]
+                start_d = mid[mid >= idx[peak_d] * 0.99].index[-1]
                 shock = idx[dates > start_d].index[0]
                 if shock >= pd.Timestamp(since):
                     events.append({"d": shock.strftime("%Y-%m-%d"), "g": g, "t": trough_d.strftime("%Y-%m-%d"),
@@ -280,31 +281,40 @@ def _detect(df, meta, rets, groups, m_thr, s_thr, i_thr, since):
     return merged
 
 
-# 최근 1년 안에서 6개가 될 때까지 기준을 조금씩 낮춤 (시장 %, 업종 %, 세부업종 %)
-TIERS = [(0.10, 0.15, 0.20), (0.08, 0.12, 0.17), (0.06, 0.10, 0.15), (0.05, 0.08, 0.12)]
+# 시장 전체는 2달 안에 5% 이상 빠지면 항상 포함, 나머지는 업종·세부업종 급락을 낙폭 큰 순으로 채움
+MARKET_THR = 0.05
+# 업종 %, 세부업종 % — 6개가 될 때까지 조금씩 낮춤
+TIERS = [(0.15, 0.20), (0.12, 0.17), (0.10, 0.15), (0.08, 0.12)]
 
 
 def find_shocks(df, meta, keep=6):
     rets = df.pct_change(fill_method=None)
-    groups = {"시장 전체": list(df.columns)}
-    sub = {}
+    market = {"시장 전체": list(df.columns)}
+    groups, sub = {}, {}
     for s in df.columns:
         groups.setdefault(meta[s]["s"], []).append(s)
         sub.setdefault(meta[s]["i"], []).append(s)
     groups.update({k: v for k, v in sub.items() if len(v) >= 4})  # 종목 4개 이상인 세부업종
     since = (df.index[-1] - timedelta(days=365)).strftime("%Y-%m-%d")
-    for m_thr, s_thr, i_thr in TIERS:
-        merged = _detect(df, meta, rets, groups, m_thr, s_thr, i_thr, since)
-        if len(merged) >= keep:
+    mk = _detect(df, meta, rets, market, MARKET_THR, 1, 1, since)[-keep:]
+    for s_thr, i_thr in TIERS:
+        others = _detect(df, meta, rets, groups, 1, s_thr, i_thr, since)
+        rest = []
+        for o in others:  # 시장 급락과 10일 안에 시작한 업종 급락은 시장 급락에 합침
+            m = next((m for m in mk if abs(_days(m["d"], o["d"])) <= 10), None)
+            if m:
+                m["g"] += [g for g in o["g"] if g not in m["g"]]
+            else:
+                rest.append(o)
+        if len(mk) + len(rest) >= keep:
             break
-    # 시장 전체 급락을 먼저, 나머지는 낙폭 큰 순으로 6개
-    merged = sorted(merged, key=lambda m: (0 if "시장 전체" in m["g"] else 1, m["dd"]))[:keep]
+    merged = mk + sorted(rest, key=lambda m: m["dd"])[: keep - len(mk)]
     merged.sort(key=lambda m: m["d"])
     level = lambda g: 0 if g == "시장 전체" else 1 if g in SECTOR_EN else 2
     names = load("ko_names.json", {})
     out = []
     for m in merged:
-        name = next((n for d, n in KNOWN if -25 <= _days(m["d"], d) <= max(25, _days(m["d"], m["t"]) + 5)), None)
+        name = next((n for d, n in KNOWN if -7 <= _days(m["d"], d) <= 14), None)
         gs = sorted(m["g"], key=level)
         en = "Stock market" if gs[0] == "시장 전체" else SECTOR_EN.get(gs[0], gs[0])
         ko = []
