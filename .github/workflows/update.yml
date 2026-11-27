@@ -1,7 +1,7 @@
 name: update-data
 on:
   schedule:
-    - cron: "*/30 13-21 * * 1-5"   # 미국장 시간(한국 밤 10시~새벽 6시) 30분마다: 주가·악재
+    - cron: "*/30 9-23 * * 1-5"    # 프리마켓~애프터마켓(한국 저녁 6시~아침 8시) 30분마다: 현재가·주가·악재
     - cron: "17 22 * * 1-5"        # 장 마감 후(한국 오전 7:17): 전체(실적·전망 포함)
   workflow_dispatch:
 permissions:
@@ -21,8 +21,8 @@ jobs:
       - run: pip install yfinance pandas
       - name: collect
         run: |
-          if [ "${{ github.event.schedule }}" = "*/30 13-21 * * 1-5" ]; then
-            python scripts/collect.py meta prices risk40
+          if [ "${{ github.event.schedule }}" = "*/30 9-23 * * 1-5" ]; then
+            python scripts/collect.py meta live prices risk40
           else
             python scripts/collect.py
           fi

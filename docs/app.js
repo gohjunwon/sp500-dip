@@ -21,7 +21,7 @@ async function init() {
     Object.assign(D, { meta, fund, est, dates: pr.dates, p: pr.p, updT: upd.t });
     $('upd').textContent = '갱신 ' + new Date(upd.t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const opt = f => fetchJSON(f).catch(() => null);
-    [D.risk, D.liq, D.macro] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json')]);
+    [D.risk, D.liq, D.macro, D.live] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json')]);
     D.risk = D.risk || {}; D.liq = D.liq || {};
     opt('desc.json').then(d => { D.desc = d; run() });
     run();
@@ -112,9 +112,10 @@ function screen(shock, ai, bt, shockDD) {
     let high = -1, hi = -1, low = Infinity, li = -1;
     for (let i = a; i <= i0; i++) if (p[i] != null && p[i] > high) { high = p[i]; hi = i }
     for (let i = i0 + 1; i <= b; i++) if (p[i] != null && p[i] < low) { low = p[i]; li = i }
-    const now = priceAt(p, ai);
+    let now = priceAt(p, ai), liveQ = null;
+    if (!bt && ai === D.dates.length - 1 && D.live && D.live.q[s]) { liveQ = D.live.q[s]; now = liveQ[0] } // 프리·장중·애프터마켓 현재가
     if (hi < 0 || li < 0 || now == null) continue;
-    const r = { s, m: D.meta[s], pre: high, low, now, hi, li, hd: dates[hi], ld: dates[li], dLow: pct(low, high), up: pct(high, now), rec: now / high * 100 };
+    const r = { s, m: D.meta[s], pre: high, low, now, liveQ, close: priceAt(p, ai), hi, li, hd: dates[hi], ld: dates[li], dLow: pct(low, high), up: pct(high, now), rec: now / high * 100 };
     (secDrops[r.m.s] = secDrops[r.m.s] || []).push(r.dLow); rows.push(r);
   }
   const secMed = {}; for (const k in secDrops) secMed[k] = median(secDrops[k]);
@@ -146,6 +147,9 @@ function screen(shock, ai, bt, shockDD) {
     const v = valuation(r.s, ai); r.val = v;
     if (v.per === -1) extra.push({ name: 'PER', st: C('cVal') ? 'bad' : 'warn', txt: 'PER 적자' });
     else if (v.per) { const hiPer = v.perMed && v.per > v.perMed; extra.push({ name: 'PER', st: hiPer ? (C('cVal') ? 'bad' : 'warn') : 'ok', txt: `PER ${v.per.toFixed(1)}${v.perMed ? ` (최근 ${v.years}년 중간 ${v.perMed.toFixed(1)})` : ''}` }) }
+    // 매도 적정가: 1차 = 낙폭의 절반 회복, 2차 = 악재 전 최고가, 참고 = 평소 PER × 최근 1년 EPS
+    const eps = ttm(quartersBefore(r.s, asOf, 45), 4);
+    r.tg = { t1: r.low + (r.pre - r.low) / 2, t2: r.pre, per: v.perMed && eps > 0 ? v.perMed * eps : null };
     if (v.fcfy != null) extra.push({ name: 'FCF', st: v.fcfy < 0 ? 'warn' : 'ok', txt: `잉여현금 수익률 ${v.fcfy.toFixed(1)}%` });
     // 3. 바닥 후 반등 신호
     const bs = bottomSignal(D.p[r.s], r.li, ai); r.bs = bs;
@@ -250,7 +254,8 @@ async function run() {
     return `<div class="card"><div class="top"><div><span class="tk"><a href="https://finance.yahoo.com/quote/${yq}" target="_blank">${r.s}</a></span>
    <span class="nm"> ${esc(r.m.n)}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up, 0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
    ${D.desc && D.desc[r.s] ? `<div class="desc">${esc(D.desc[r.s])}</div>` : ''}
-   <div class="px">${r.m.s} · ${esc(r.m.i)}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
+   <div class="sell">💰 매도 적정가 · 1차 <b>$${r.tg.t1.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t1, r.now), 0)}, 낙폭 절반 회복)</small> · 2차 <b>$${r.tg.t2.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t2, r.now), 0)}, 악재 전 최고가)</small>${r.tg.per && r.tg.per > r.now ? ` · 참고 <b>$${r.tg.per.toFixed(2)}</b> <small>(평소 PER 기준)</small>` : ''}</div>
+   <div class="px">${r.m.s} · ${esc(r.m.i)}<br>현재가 <b>$${r.now.toFixed(2)}</b> ${r.liveQ ? `<small>(${r.liveQ[2]} ${r.liveQ[1]} 미국 동부시간, 약 15분 지연 · 최근 일봉 종가 $${r.close.toFixed(2)})</small>` : `<small>(${D.dates[D.dates.length - 1].slice(5)} 종가)</small>`}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)})${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
    <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}</div>
    <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>

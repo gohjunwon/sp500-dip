@@ -128,6 +128,29 @@ def prices(symbols):
     return df.rename(columns={y: s for s, y in ymap.items()})
 
 
+# ---------- 2-00. 실시간에 가까운 현재가 (프리마켓·장중·애프터마켓 포함, 약 15분 지연) ----------
+def live_quotes(symbols):
+    import yfinance as yf
+    from zoneinfo import ZoneInfo
+    ymap = {s: s.replace(".", "-") for s in symbols}
+    raw = yf.download(list(ymap.values()), period="2d", interval="5m", prepost=True,
+                      progress=False, threads=True)["Close"]
+    et = ZoneInfo("America/New_York")
+    q = {}
+    for s, y in ymap.items():
+        if y not in raw.columns:
+            continue
+        col = raw[y].dropna()
+        if col.empty:
+            continue
+        ts = col.index[-1].tz_convert(et)
+        hm = ts.hour * 60 + ts.minute
+        sess = "프리마켓" if hm < 570 else "장중" if hm < 960 else "애프터마켓"
+        q[s] = [round(float(col.iloc[-1]), 2), ts.strftime("%m/%d %H:%M"), sess]
+    save("live.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes"), "q": q})
+    print(f"live: {len(q)}")
+
+
 # ---------- 2-0. 악재 해소 지표 (S&P500·VIX·유가·미국 10년 금리·달러) ----------
 MACRO = {"^GSPC": "S&P 500", "^VIX": "VIX 공포지수", "CL=F": "WTI 유가", "^TNX": "미국 10년 금리", "DX-Y.NYB": "달러 지수"}
 
@@ -765,7 +788,7 @@ def risk_info(meta, limit=None):
 
 
 def main():
-    steps = sys.argv[1:] or ["meta", "prices", "fund", "est", "risk", "desc"]
+    steps = sys.argv[1:] or ["meta", "live", "prices", "fund", "est", "risk", "desc"]
     meta = constituents()
 
     def step(name, fn, *args):  # 한 단계가 실패해도 나머지는 계속
@@ -778,6 +801,8 @@ def main():
 
     if "meta" in steps:
         save("meta.json", {k: {"n": v["n"], "s": v["s"], "i": v["i"], "a": v["a"]} for k, v in meta.items()})
+    if "live" in steps:
+        step("live", live_quotes, list(meta))
     if "prices" in steps:
         df = prices(list(meta))  # 주가가 실패하면 저장할 것이 없으므로 그대로 중단
         step("shocks", find_shocks, df, meta)
