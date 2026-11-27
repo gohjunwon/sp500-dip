@@ -327,6 +327,12 @@ def hist_shocks(df, meta, rets, market, groups, names):
         else:
             mk.append(o)
     level = lambda g: 0 if g == "시장 전체" else 1 if g in SECTOR_EN else 2
+    need = sorted({g for m in mk for g in m["g"] if level(g) == 2 and names.get(g, g) == g})
+    for i in range(0, len(need), 12):  # 세부업종 이름 한국어로
+        for g, k in zip(need[i:i + 12], translate_many(need[i:i + 12])):
+            if k:
+                names[g] = k
+    save("ko_names.json", names)
     res = []
     for m in sorted(mk, key=lambda m: m["d"]):
         gs = sorted(m["g"], key=level)
