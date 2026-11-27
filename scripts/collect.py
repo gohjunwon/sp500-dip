@@ -84,11 +84,20 @@ def constituents():
 
 # ---------- 2. 주가 ----------
 def prices(symbols):
+    import pandas as pd
     import yfinance as yf
     ymap = {s: s.replace(".", "-") for s in symbols}
-    raw = yf.download(list(ymap.values()), start="2019-06-01", auto_adjust=True,
+    raw = yf.download(list(ymap.values()), start="2019-06-01", auto_adjust=True, actions=True,
                       progress=False, threads=True)
     df = raw["Close"].dropna(how="all")
+    # 최근 1년 주당 배당금 합계 (연 배당률 = 이 값 ÷ 현재가)
+    try:
+        dv = raw["Dividends"].fillna(0)
+        last1y = dv[dv.index > dv.index[-1] - pd.Timedelta(days=365)].sum()
+        save("div.json", {s: round(float(last1y[y]), 4) for s, y in ymap.items()
+                          if y in last1y.index and last1y[y] > 0})
+    except Exception as e:
+        print("div fail", e)
     op = raw["Open"].reindex(df.index)
     # 갭하락: 시가가 전날 종가보다 1% 이상 낮게 시작한 날만 기록 (용량 절약)
     gap = (op / df.shift(1) - 1) * 100
