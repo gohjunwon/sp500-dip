@@ -244,8 +244,9 @@ def find_shocks(df, meta, keep=6):
         gs = m["g"]
         who = "시장 전체" if "시장 전체" in gs else "·".join(gs[:2]) + (" 등" if len(gs) > 2 else "")
         out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "dd": m["dd"]})
-    for e in out:
-        e["news"] = shock_news(e)
+    cached = {x["d"]: x.get("news") for x in load("shocks.json", []) if x.get("news")}
+    for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음
+        e["news"] = cached.get(e["d"]) or shock_news(e)
     save("shocks.json", list(reversed(out)))
     print("shocks:", out)
 
