@@ -101,7 +101,7 @@ function groupIndex(syms, from, to) {
 }
 
 // ---------- 검색 (bt=true 이면 과거 검증용: 기준일 ai 시점의 정보만 사용) ----------
-function screen(shock, ai, bt) {
+function screen(shock, ai, bt, shockDD) {
   const dates = D.dates; const preFrom = addDays(shock, -60), postTo = addDays(shock, 60);
   const a = idxOn(addDays(preFrom, -1)) + 1, i0 = idxOn(addDays(shock, -1)), b = Math.min(idxOn(postTo), ai);
   if (a < 0 || i0 < 0 || i0 >= ai) return null;
@@ -160,11 +160,25 @@ function screen(shock, ai, bt) {
       const lq = D.liq[r.s]; if (lq != null) extra.push({ name: '거래대금', st: lq < 30 ? 'warn' : 'info', txt: `하루 거래대금 $${lq >= 1000 ? (lq / 1000).toFixed(1) + 'B' : Math.round(lq) + 'M'}` });
       if (v.mcap) extra.push({ name: '시총', st: 'info', txt: `시가총액 $${v.mcap >= 1e12 ? (v.mcap / 1e12).toFixed(2) + 'T' : (v.mcap / 1e9).toFixed(0) + 'B'}` });
     }
+    // 회복 가능성 점수 (10년 분석 공통점 4가지)
+    const p = D.p[r.s]; const px0 = priceAt(p, i0), px1 = i0 >= 252 ? priceAt(p, i0 - 252) : null;
+    const mom = px0 && px1 ? pct(px0, px1) : null;
+    const rr = []; for (let i = Math.max(1, i0 - 60); i <= i0; i++) if (p[i] != null && p[i - 1] != null) rr.push(p[i] / p[i - 1] - 1);
+    const vol = rr.length >= 40 ? Math.sqrt(rr.reduce((a, x) => a + x * x, 0) / rr.length - (rr.reduce((a, x) => a + x, 0) / rr.length) ** 2) * Math.sqrt(252) * 100 : null;
+    const sdd = shockDD != null ? Math.min(shockDD, secMed[r.m.s] ?? 0) : secMed[r.m.s];
+    const sc = [
+      { hit: mom != null && mom > 0, txt: mom == null ? '① 1년 추세 자료없음' : `① 악재 전 1년 ${fmt(mom, 0)}` },
+      { hit: fin || (f.de != null && f.de <= 100), txt: fin ? '② 금융·부동산 (부채비율 제외)' : f.de == null ? '② 부채비율 자료없음' : `② 부채비율 ${f.de.toFixed(0)}%` },
+      { hit: vol != null && vol <= 30, txt: vol == null ? '③ 변동성 자료없음' : `③ 변동성 연 ${vol.toFixed(0)}%` },
+      { hit: sdd != null && sdd <= -20, txt: sdd == null ? '④ 악재 크기 자료없음' : `④ 악재 크기 ${fmt(sdd, 0)}` },
+    ];
+    r.score = sc.filter(x => x.hit).length; r.sc = sc;
+    if (C('cScore') && r.score < V('vScore')) continue;
     const all = tests.concat(extra);
     if (all.some(t => t.st === 'bad' || (t.st === 'unk' && !unkPass))) continue;
     res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
   }
-  res.sort((x, y) => x.warn - y.warn || y.up - x.up);
+  res.sort((x, y) => y.score - x.score || x.warn - y.warn || y.up - x.up);
   return { res, cand, secMed, i0, b };
 }
 
@@ -219,14 +233,14 @@ async function run() {
   if (V('minGap') > 0) await ensureGaps();
   showNews(shock);
   const ai = D.dates.length - 1;
-  const out = screen(shock, ai, false);
+  const fx = findShock(shock); const out = screen(shock, ai, false, fx ? fx.dd : null);
   if (!out) { $('summary').textContent = '해당 날짜의 주가 자료가 없습니다.'; $('list').innerHTML = ''; $('resolve').style.display = 'none'; return }
   const { res, cand, secMed, i0 } = out;
   showResolve(shock, i0);
   $('secBox').style.display = '';
   $('secs').innerHTML = Object.entries(secMed).sort((a, b) => a[1] - b[1]).map(([k, v]) => `<span class="b">${k} ${fmt(v, 0)}</span>`).join('');
   const minGap = V('minGap');
-  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(노란색 적은 순 → 회복 여력 큰 순)</span>`;
+  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 가능성 점수 높은 순 → 노란색 적은 순 → 회복 여력 큰 순)</span>`;
   const mix = {}; res.forEach(r => mix[r.m.s] = (mix[r.m.s] || 0) + 1);
   $('mix').innerHTML = res.length ? `결과 업종 분포: ${Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')} — 한 업종·한 종목에 몰리지 않게 나눠 담는 것이 일반적인 위험 관리 방법입니다.` : '';
   const badge = t => `<span class="b ${t.st}">${t.st === 'ok' ? '✓' : t.st === 'bad' ? '✗' : t.st === 'warn' ? '△' : t.st === 'info' ? '·' : '?'} ${t.txt}</span>`;
@@ -237,7 +251,8 @@ async function run() {
    <span class="nm"> ${esc(r.m.n)}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up, 0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
    ${D.desc && D.desc[r.s] ? `<div class="desc">${esc(D.desc[r.s])}</div>` : ''}
    <div class="px">${r.m.s} · ${esc(r.m.i)}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
-   <div class="badges">${r.tests.map(badge).join('')}</div>
+   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}</div>
+   <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>
    <details class="more"><summary>최근 회사 뉴스</summary>${news || '<div class="note">저장된 뉴스 없음</div>'}
    <a href="https://news.google.com/search?q=${encodeURIComponent(r.m.n + ' stock')}&hl=ko&gl=KR&ceid=KR:ko" target="_blank" rel="noopener">구글 뉴스에서 더 보기 →</a></details></div>`
@@ -255,7 +270,7 @@ async function backtest() {
   const H = [63, 126, 252]; const rows = []; const all = H.map(() => []); const ex = H.map(() => []);
   for (const h of hs) {
     const entry = idxOn(addDays(h.d, 61)); if (entry < 0 || entry > last - 5) continue;
-    const out = screen(h.d, entry, true); if (!out) continue;
+    const out = screen(h.d, entry, true, h.dd); if (!out) continue;
     const row = { h, n: out.res.length, r: [], sp: [] };
     H.forEach((k, j) => {
       const t = entry + k; if (t > last) { row.r.push(null); row.sp.push(null); return }

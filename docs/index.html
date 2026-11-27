@@ -85,6 +85,11 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
         <input type="checkbox" id="cDe" checked><span>부채비율 ≤ % (금융·부동산 제외)</span><input type="number" id="vDe" value="300">
         <input type="checkbox" id="cNi" checked><span>악재 전 1년 순이익 흑자</span><span></span>
       </div>
+      <div style="font-weight:600;font-size:14px;margin-top:14px">회복 가능성 점수 (2016~2026년 10년 분석에서 잘 회복한 종목의 공통점)</div>
+      <p class="note" style="margin:4px 0">① 악재 전 1년 주가 상승 ② 부채비율 100% 이하(금융·부동산은 제외하고 인정) ③ 악재 전 60일 변동성 연 30% 이하 ④ 큰 악재(업종·시장 낙폭 20% 이상). 점수가 높은 종목이 위에 나옵니다.</p>
+      <div class="crit">
+        <input type="checkbox" id="cScore"><span>회복 가능성 점수가 이 값 이상인 종목만</span><input type="number" id="vScore" value="3" min="1" max="4">
+      </div>
       <div style="font-weight:600;font-size:14px;margin-top:14px">추가 점검 (켜면 해당 종목 제외, 끄면 노란색 표시만)</div>
       <div class="crit">
         <input type="checkbox" id="cPost"><span>악재 이후 발표된 실적이 1년 전보다 줄어든 종목 제외</span><span></span>
@@ -112,6 +117,6 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
   </div>
 </main>
 <footer>자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 미국장 시간 30분마다(주가·악재), 장 마감 후 매일(실적·전망) 자동 갱신. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
