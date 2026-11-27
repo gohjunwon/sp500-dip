@@ -79,20 +79,12 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
       <summary>가치 유지 조건 설정</summary>
       <div class="crit">
         <input type="checkbox" id="cSec" checked><span>업종 전체 동반 하락 (업종 중간값 최대 낙폭 ≥ %)</span><input type="number" id="vSec" value="15">
-        <input type="checkbox" id="cRev" checked><span>악재 전 분기 매출, 1년 전 대비 ≥ %</span><input type="number" id="vRev" value="0">
+        <input type="checkbox" id="cRev" checked disabled><span><b>항상 적용</b> · 악재 전 분기 매출, 1년 전 대비 ≥ % (2025년 분석: 10% 이상 79% 회복, 미만 47%)</span><input type="number" id="vRev" value="10" min="10">
         <input type="checkbox" id="cOp" checked><span>악재 전 분기 영업이익, 1년 전 대비 ≥ %</span><input type="number" id="vOp" value="0">
         <input type="checkbox" id="cEst" checked><span>내년 EPS 전망 하향 폭 ≤ %</span><input type="number" id="vEst" value="10">
         <input type="checkbox" id="cDe" checked><span>부채비율 ≤ % (금융·부동산 제외)</span><input type="number" id="vDe" value="300">
         <input type="checkbox" id="cNi" checked><span>악재 전 1년 순이익 흑자</span><span></span>
       </div>
-      <div style="font-weight:600;font-size:14px;margin-top:14px">회복 패턴 (2025년 악재 분석에서 회복한 종목들의 공통점 — 켜면 해당 조건을 못 맞춘 종목 제외)</div>
-      <div class="crit">
-        <input type="checkbox" id="gRev"><span>악재 전 매출 성장률 ≥ % (10% 이상 79% 회복, 미만 47%)</span><input type="number" id="vgRev" value="10">
-        <input type="checkbox" id="gReb"><span>반등 시작: 20일선 위 또는 악재 전 최고가의 % 이상 회복</span><input type="number" id="vgReb" value="80">
-        <input type="checkbox" id="gPer"><span>PER이 평소 PER의 % 이상 (너무 싸면 가치 함정)</span><input type="number" id="vgPer" value="80">
-        <input type="checkbox" id="gDrop"><span>최고→최저 낙폭 ≤ % (45% 넘게 빠진 종목은 회복 못함)</span><input type="number" id="vgDrop" value="45">
-      </div>
-      <p class="note">켜지 않아도 각 종목에 <b>회복 패턴 n/4</b>와 배지가 표시되고, 패턴을 많이 맞춘 종목이 위에 나옵니다. 아래 "과거 성과 계산"을 다시 누르면 이 조건을 켰을 때 성과도 볼 수 있습니다.</p>
       <div style="font-weight:600;font-size:14px;margin-top:14px">추가 점검 (켜면 해당 종목 제외, 끄면 노란색 표시만)</div>
       <div class="crit">
         <input type="checkbox" id="cPost"><span>악재 이후 발표된 실적이 1년 전보다 줄어든 종목 제외</span><span></span>
@@ -120,6 +112,6 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
   </div>
 </main>
 <footer>자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 미국장 시간 30분마다(주가·악재), 장 마감 후 매일(실적·전망) 자동 갱신. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
