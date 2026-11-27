@@ -173,7 +173,7 @@ function screen(shock, ai, bt, shockDD) {
       { hit: sdd != null && sdd <= -20, txt: sdd == null ? '④ 악재 크기 자료없음' : `④ 악재 크기 ${fmt(sdd, 0)}` },
     ];
     r.score = sc.filter(x => x.hit).length; r.sc = sc;
-    if (C('cScore') && r.score < V('vScore')) continue;
+    if (r.score < V('vScore')) continue;
     const all = tests.concat(extra);
     if (all.some(t => t.st === 'bad' || (t.st === 'unk' && !unkPass))) continue;
     res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
@@ -240,7 +240,7 @@ async function run() {
   $('secBox').style.display = '';
   $('secs').innerHTML = Object.entries(secMed).sort((a, b) => a[1] - b[1]).map(([k, v]) => `<span class="b">${k} ${fmt(v, 0)}</span>`).join('');
   const minGap = V('minGap');
-  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 가능성 점수 높은 순 → 노란색 적은 순 → 회복 여력 큰 순)</span>`;
+  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과${V('vScore') > 0 ? ` + 회복 가능성 ${V('vScore')}점 이상` : ''} <b>${res.length}</b>종목 <span class="note">(회복 가능성 점수 높은 순 → 노란색 적은 순 → 회복 여력 큰 순)</span>`;
   const mix = {}; res.forEach(r => mix[r.m.s] = (mix[r.m.s] || 0) + 1);
   $('mix').innerHTML = res.length ? `결과 업종 분포: ${Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')} — 한 업종·한 종목에 몰리지 않게 나눠 담는 것이 일반적인 위험 관리 방법입니다.` : '';
   const badge = t => `<span class="b ${t.st}">${t.st === 'ok' ? '✓' : t.st === 'bad' ? '✗' : t.st === 'warn' ? '△' : t.st === 'info' ? '·' : '?'} ${t.txt}</span>`;
@@ -294,6 +294,7 @@ async function backtest() {
 }
 
 $('go').onclick = run;
+$('vScore').onchange = run;
 $('btGo').onclick = backtest;
 init();
 // 페이지를 열어 둔 동안에도 10분마다 새 데이터 확인
