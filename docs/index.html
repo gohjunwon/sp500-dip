@@ -106,12 +106,12 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
   <div id="list"></div>
   <div class="panel" id="btPanel">
     <div style="font-weight:600">과거 악재로 이 조건 검증하기 (백테스트)</div>
-    <p class="note">2019년 9월 이후의 큰 악재마다, 악재 2달 뒤 지금과 같은 조건으로 골랐다면 3개월·6개월·1년 뒤 수익률이 어땠는지 계산합니다. 현재 S&P 500 종목만 대상이라(중간에 빠진 회사 제외) 실제보다 좋게 나올 수 있습니다. EPS 전망·투자의견·공매도 등 과거 기록이 없는 항목은 빼고 계산합니다.</p>
+    <p class="note">2019년 9월 이후의 큰 악재마다, 악재 2달 뒤 지금과 같은 조건으로 골랐다면 3개월·6개월·1년 뒤 수익률이 어땠는지 계산합니다. 그 당시 S&P 500에 있던 종목만 계산합니다(나중에 편입된 종목 제외). 다만 그 뒤 지수에서 빠지거나 상장폐지된 회사는 주가 자료가 없어 빠지므로, 여전히 실제보다 조금 좋게 나올 수 있습니다. 종목 수가 많은 악재(2020년 코로나 등)가 전체 평균을 끌어올리므로 <b>S&P 500을 이긴 악재 횟수</b>와 <b>악재별 중간값</b>을 함께 보세요. EPS 전망·투자의견·공매도 등 과거 기록이 없는 항목은 빼고 계산합니다.</p>
     <button class="go" id="btGo" style="background:#3b3a36">과거 성과 계산</button>
     <div id="bt"></div>
   </div>
 </main>
 <footer>자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 미국장 시간 30분마다(주가·악재), 장 마감 후 매일(실적·전망) 자동 갱신. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

@@ -22,7 +22,7 @@ jobs:
       - name: collect
         run: |
           if [ "${{ github.event.schedule }}" = "*/30 13-21 * * 1-5" ]; then
-            python scripts/collect.py meta prices
+            python scripts/collect.py meta prices risk40
           else
             python scripts/collect.py
           fi

@@ -108,6 +108,7 @@ function screen(shock, ai, bt) {
   const rows = [], secDrops = {};
   for (const s in D.meta) {
     const p = D.p[s]; if (!p) continue;
+    if (bt && D.meta[s].a && D.meta[s].a > shock) continue; // 과거 검증: 그 당시 S&P 500에 없던 종목 제외
     let high = -1, hi = -1, low = Infinity, li = -1;
     for (let i = a; i <= i0; i++) if (p[i] != null && p[i] > high) { high = p[i]; hi = i }
     for (let i = i0 + 1; i <= b; i++) if (p[i] != null && p[i] < low) { low = p[i]; li = i }
@@ -174,7 +175,7 @@ function showNews(shock) {
   const x = findShock(shock); const box = $('newsBox');
   if (!x) { box.style.display = 'none'; return }
   box.style.display = '';
-  box.innerHTML = `<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}% · 그 무렵 해외 뉴스 (한국어 번역)</small>` +
+  box.innerHTML = `<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}%${x.guess ? ' · 원인은 뉴스 제목으로 자동 추정' : ''} · 그 무렵 해외 뉴스 (한국어 번역)</small>` +
     ((x.news || []).length ? x.news.map(n => `<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.k || n.t)}${n.k && n.k !== n.t ? `<br><small>${esc(n.t)}</small>` : ''} <small>· ${esc(n.s)} ${esc(n.d)}</small></a>`).join('') : '<div class="note" style="margin-top:5px">관련 뉴스를 찾지 못했습니다</div>');
 }
 function showResolve(shock, i0) {
@@ -273,7 +274,7 @@ async function backtest() {
     rows.map(r => `<tr><td>${r.h.d.slice(0, 7)} ${esc(r.h.name)}</td><td>${r.n}</td>${r.r.map(cell).join('')}${cell(r.sp[2])}</tr>`).join('') +
     `<tr style="font-weight:600"><td>악재별 평균의 평균</td><td>${rows.filter(r => r.n).length}회</td>${[0, 1, 2].map(j => cell(avg(rows.filter(r => r.n && r.r[j] != null).map(r => r.r[j])))).join('')}${cell(avg(rows.filter(r => r.n && r.sp[2] != null).map(r => r.sp[2])))}</tr>` +
     `<tr style="font-weight:600"><td>전체 평균 (종목별)</td><td>${all[0].length}</td>${all.map(a => cell(avg(a))).join('')}<td></td></tr></table>` +
-    `<p class="note" style="margin-top:8px">수익 낸 종목 비율: 3개월 ${win(all[0]) ?? '-'}% · 6개월 ${win(all[1]) ?? '-'}% · 1년 ${win(all[2]) ?? '-'}%<br>
+    `<p class="note" style="margin-top:8px"><b>S&P 500을 이긴 악재: ${rows.filter(r => r.r[2] != null && r.sp[2] != null).filter(r => r.r[2] > r.sp[2]).length} / ${rows.filter(r => r.r[2] != null && r.sp[2] != null).length}회 (1년 기준)</b> · 악재별 1년 초과수익 중간값 ${(() => { const m = median(rows.filter(r => r.r[2] != null && r.sp[2] != null).map(r => r.r[2] - r.sp[2])); return m == null ? '-' : fmt(m, 1) })()}<br>수익 낸 종목 비율: 3개월 ${win(all[0]) ?? '-'}% · 6개월 ${win(all[1]) ?? '-'}% · 1년 ${win(all[2]) ?? '-'}%<br>
      같은 기간 S&P 500보다 평균 ${ex[2].length ? fmt(avg(ex[2]), 1) : '-'} (1년 기준) · 종목 수가 적은 행은 우연의 영향이 큽니다.</p>`;
 }
 
