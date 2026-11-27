@@ -509,6 +509,18 @@ def fundamentals(meta):
         except Exception as e:
             print("SEC fail", sym, e)
             continue
+        try:
+            fund[sym] = _fund_one(facts)
+            ok += 1
+        except Exception as e:
+            print("fund parse fail", sym, e)
+        time.sleep(0.12)  # SEC 초당 10회 제한
+    save("fund.json", fund)
+    print(f"fund: {ok} updated")
+
+
+def _fund_one(facts):
+    if True:
         rev = quarterly_series(facts, REV_TAGS)
         op = quarterly_series(facts, OP_TAGS)
         ni = quarterly_series(facts, NI_TAGS)
@@ -518,7 +530,7 @@ def fundamentals(meta):
         # 분기 EPS = 분기 순이익 ÷ 희석 주식 수 (누적값 차감으로 생기는 오류를 피함), 없으면 공시 EPS
         eps = {}
         for e in set(ni) | set(eps_rep):
-            if e in ni and wsh.get(e):
+            if e in ni and (wsh.get(e) or 0) > 0:
                 eps[e] = round(ni[e] / wsh[e], 4)
             elif e in eps_rep:
                 eps[e] = eps_rep[e]
@@ -527,6 +539,7 @@ def fundamentals(meta):
         capex = quarterly_series(facts, ["PaymentsToAcquirePropertyPlantAndEquipment",
                                          "PaymentsToAcquireProductiveAssets"])
         shares = instant_series(facts, "EntityCommonStockSharesOutstanding", "shares", "dei")
+        wsh = {e: v for e, v in wsh.items() if v and v > 0}
         if wsh:  # 표지 주식 수가 없거나 희석 주식 수와 크게 다르면 희석 주식 수 사용
             last_w = wsh[max(wsh)]
             last_s = shares[max(shares)] if shares else None
@@ -541,16 +554,12 @@ def fundamentals(meta):
             if d not in liab and d in eq:
                 liab[d] = v - eq[d]
         bal = sorted(e for e in set(liab) & set(eq) if e >= "2017-01-01")
-        fund[sym] = {
+        return {
             # [분기말, 매출, 영업이익, 순이익, 희석EPS, 영업현금흐름, 설비투자]
             "q": [[e, rev.get(e), op.get(e), ni.get(e), eps.get(e), ocf.get(e), capex.get(e)] for e in ends],
             "sh": [[d, v] for d, v in sorted(shares.items()) if d >= "2017-01-01"][-12:],
             "b": [[e, liab[e], eq[e]] for e in bal],
         }
-        ok += 1
-        time.sleep(0.12)  # SEC 초당 10회 제한
-    save("fund.json", fund)
-    print(f"fund: {ok} updated")
 
 
 # ---------- 4. 애널리스트 추정치 ----------
@@ -750,21 +759,30 @@ def risk_info(meta, limit=None):
 def main():
     steps = sys.argv[1:] or ["meta", "prices", "fund", "est", "risk", "desc"]
     meta = constituents()
+
+    def step(name, fn, *args):  # 한 단계가 실패해도 나머지는 계속
+        try:
+            return fn(*args)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"step {name} failed: {e}")
+
     if "meta" in steps:
         save("meta.json", {k: {"n": v["n"], "s": v["s"], "i": v["i"], "a": v["a"]} for k, v in meta.items()})
     if "prices" in steps:
-        df = prices(list(meta))
-        find_shocks(df, meta)
+        df = prices(list(meta))  # 주가가 실패하면 저장할 것이 없으므로 그대로 중단
+        step("shocks", find_shocks, df, meta)
     if "fund" in steps:
-        fundamentals(meta)
+        step("fund", fundamentals, meta)
     if "est" in steps:
-        estimates(meta)
+        step("est", estimates, meta)
     if "risk" in steps:
-        risk_info(meta)
+        step("risk", risk_info, meta)
     if "risk40" in steps:
-        risk_info(meta, 40)
+        step("risk40", risk_info, meta, 40)
     if "desc" in steps:
-        descriptions(meta)
+        step("desc", descriptions, meta)
     save("updated.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes")})
 
 
