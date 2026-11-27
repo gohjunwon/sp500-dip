@@ -1,0 +1,27 @@
+name: backtest-10y
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance pandas
+      - run: python scripts/backtest10y.py
+      - name: commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/data/backtest10y.json
+          git commit -m "10년 백테스트 결과" || echo "no changes"
+          git pull --rebase -X theirs || true
+          git push
