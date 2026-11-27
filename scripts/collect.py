@@ -114,8 +114,32 @@ def prices(symbols):
         old["p"][s] = col[:cut]
     save("prices_recent.json", recent)
     save("prices_old.json", old)
+    # 최근 20일 평균 거래대금(달러)
+    try:
+        vol = raw["Volume"].reindex(df.index)
+        dv = (vol * df).tail(20).mean()
+        save("liq.json", {s: round(float(dv[y]) / 1e6, 1) for s, y in ymap.items()
+                          if y in dv.index and dv[y] == dv[y]})
+    except Exception as e:
+        print("liq fail", e)
+    macro(df.index)
     print(f"prices: {len(recent['p'])} tickers, {len(dates)} days")
     return df.rename(columns={y: s for s, y in ymap.items()})
+
+
+# ---------- 2-0. 악재 해소 지표 (S&P500·VIX·유가·미국 10년 금리·달러) ----------
+MACRO = {"^GSPC": "S&P 500", "^VIX": "VIX 공포지수", "CL=F": "WTI 유가", "^TNX": "미국 10년 금리", "DX-Y.NYB": "달러 지수"}
+
+
+def macro(index):
+    import yfinance as yf
+    raw = yf.download(list(MACRO), start="2019-06-01", progress=False, auto_adjust=True)["Close"]
+    raw = raw.reindex(index).ffill()
+    out = {"dates": [d.strftime("%Y-%m-%d") for d in index], "s": {}}
+    for k, name in MACRO.items():
+        if k in raw.columns:
+            out["s"][name] = [None if v != v else round(float(v), 2) for v in raw[k].tolist()]
+    save("macro.json", out)
 
 
 # ---------- 2-1. 악재 자동 찾기 ----------
@@ -292,6 +316,27 @@ MARKET_THR = 0.05
 TIERS = [(0.15, 0.20), (0.12, 0.17), (0.10, 0.15), (0.08, 0.12)]
 
 
+def hist_shocks(df, meta, rets, market, groups, names):
+    """과거 성과 검증용: 2019년 9월 이후 큰 악재 전체 (시장 8%↓, 업종 15%↓, 세부업종 25%↓)"""
+    mk = _detect(df, meta, rets, market, 0.08, 1, 1, "2019-09-01")
+    others = _detect(df, meta, rets, groups, 1, 0.15, 0.25, "2019-09-01")
+    for o in others:
+        m = next((m for m in mk if abs(_days(m["d"], o["d"])) <= 10), None)
+        if m:
+            m["g"] += [g for g in o["g"] if g not in m["g"]]
+        else:
+            mk.append(o)
+    level = lambda g: 0 if g == "시장 전체" else 1 if g in SECTOR_EN else 2
+    res = []
+    for m in sorted(mk, key=lambda m: m["d"]):
+        gs = sorted(m["g"], key=level)
+        kn = next((k for k in KNOWN if -7 <= _days(m["d"], k[0]) <= 14), None)
+        who = "시장 전체" if gs[0] == "시장 전체" else "·".join(names.get(g, g) for g in gs[:2])
+        res.append({"d": m["d"], "name": kn[1] if kn else f"{who} 급락", "dd": m["dd"], "gk": gs[:3]})
+    save("hist_shocks.json", res)
+    print("hist shocks:", len(res))
+
+
 def find_shocks(df, meta, keep=6):
     rets = df.pct_change(fill_method=None)
     market = {"시장 전체": list(df.columns)}
@@ -332,8 +377,12 @@ def find_shocks(df, meta, keep=6):
             ko.append(names.get(g, g))
         who = "시장 전체" if gs[0] == "시장 전체" else "·".join(ko) + (" 등" if len(gs) > 2 else "")
         out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"],
-                    "q": kn[2] if kn else ""})
+                    "q": kn[2] if kn else "", "gk": gs[:3]})
     save("ko_names.json", names)
+    try:
+        hist_shocks(df, meta, rets, market, groups, names)
+    except Exception as e:
+        print("hist fail", e)
     cached = {(x["d"], x.get("q", "")): x.get("news") for x in load("shocks.json", []) if x.get("news")}
     for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음 (번역만 빠진 것은 다시 번역)
         news = cached.get((e["d"], e["q"])) or shock_news(e)
@@ -352,39 +401,40 @@ def _days(a, b):
     return (date.fromisoformat(b) - date.fromisoformat(a)).days
 
 
-def quarterly_series(facts, tags):
-    """여러 태그를 합쳐 {분기말일: 값} (3개월 값, 4분기는 연간-9개월로 계산)"""
-    gaap = facts.get("facts", {}).get("us-gaap", {})
-    q, ytd, fy = {}, {}, {}
+def quarterly_series(facts, tags, unit="USD", ns="us-gaap"):
+    """여러 태그를 합쳐 {분기말일: 3개월 값}.
+    3개월 공시값을 우선 쓰고, 누적(6·9·12개월) 공시만 있으면 앞 누적값을 빼서 계산"""
+    sec = facts.get("facts", {}).get(ns, {})
+    pure, cum = {}, {}
     for tag in tags:
-        units = gaap.get(tag, {}).get("units", {}).get("USD", [])
-        tq, tytd, tfy = {}, {}, {}
+        units = sec.get(tag, {}).get("units", {}).get(unit, [])
+        tp, tc = {}, {}
         for e in units:
             if "start" not in e or e.get("form") not in ("10-Q", "10-K", "10-Q/A", "10-K/A"):
                 continue
             d = _days(e["start"], e["end"])
-            key = (e["start"], e["end"])
-            bucket = tq if 80 <= d <= 100 else tytd if 260 <= d <= 285 else tfy if 350 <= d <= 380 else None
-            if bucket is None:
+            if not 80 <= d <= 380:
                 continue
+            bucket = tp if d <= 100 else tc
+            key = (e["start"], e["end"])
             prev = bucket.get(key)
             if prev is None or e.get("filed", "") > prev[1]:
                 bucket[key] = (e["val"], e.get("filed", ""))
-        for src, dst in ((tq, q), (tytd, ytd), (tfy, fy)):
-            for k, v in src.items():
-                dst.setdefault(k, v[0])  # 앞 태그 우선
-    out = {end: v for (start, end), v in q.items()}
-    for (s, e), v in fy.items():
-        if e in out:
-            continue
-        nine = [val for (s2, e2), val in ytd.items() if s2 == s and e2 < e]
-        if nine:
-            out[e] = v - nine[0]
-        else:
-            three = sorted([(e2, val) for (s2, e2), val in q.items() if s2 >= s and e2 < e])
-            if len(three) == 3:
-                out[e] = v - sum(x[1] for x in three)
-    # 같은 분기가 날짜만 조금 다르게(52/53주) 중복되는 경우 정리
+        for k, v in tp.items():
+            pure.setdefault(k, v[0])
+        for k, v in tc.items():
+            cum.setdefault(k, v[0])
+    out = {end: v for (start, end), v in pure.items()}
+    # 같은 시작일의 누적값들: 3개월 값(있으면)과 누적값을 끝나는 날 순으로 이어 붙여 차이 계산
+    by_start = {}
+    for (st, en), v in list(pure.items()) + list(cum.items()):
+        by_start.setdefault(st, {})[en] = v
+    for st, series in by_start.items():
+        ends = sorted(series)
+        for i in range(1, len(ends)):
+            e0, e1 = ends[i - 1], ends[i]
+            if e1 not in out and 80 <= _days(e0, e1) <= 100:
+                out[e1] = series[e1] - series[e0]
     clean = {}
     for e in sorted(out):
         if clean and _days(max(clean), e) < 45:
@@ -393,11 +443,11 @@ def quarterly_series(facts, tags):
     return clean
 
 
-def instant_series(facts, tag):
-    units = facts.get("facts", {}).get("us-gaap", {}).get(tag, {}).get("units", {}).get("USD", [])
+def instant_series(facts, tag, unit="USD", ns="us-gaap"):
+    units = facts.get("facts", {}).get(ns, {}).get(tag, {}).get("units", {}).get(unit, [])
     out = {}
     for e in units:
-        if "start" in e or e.get("form") not in ("10-Q", "10-K", "10-Q/A", "10-K/A"):
+        if "start" in e or e.get("form") not in ("10-Q", "10-K", "10-Q/A", "10-K/A", "10-K405"):
             continue
         prev = out.get(e["end"])
         if prev is None or e.get("filed", "") > prev[1]:
@@ -419,6 +469,12 @@ def fundamentals(meta):
         rev = quarterly_series(facts, REV_TAGS)
         op = quarterly_series(facts, OP_TAGS)
         ni = quarterly_series(facts, NI_TAGS)
+        eps = quarterly_series(facts, ["EarningsPerShareDiluted", "EarningsPerShareBasic"], "USD/shares")
+        ocf = quarterly_series(facts, ["NetCashProvidedByUsedInOperatingActivities",
+                                       "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"])
+        capex = quarterly_series(facts, ["PaymentsToAcquirePropertyPlantAndEquipment",
+                                         "PaymentsToAcquireProductiveAssets"])
+        shares = instant_series(facts, "EntityCommonStockSharesOutstanding", "shares", "dei")
         ends = sorted(set(rev) | set(op))
         ends = [e for e in ends if e >= "2017-01-01"]
         liab = instant_series(facts, "Liabilities")
@@ -429,7 +485,9 @@ def fundamentals(meta):
                 liab[d] = v - eq[d]
         bal = sorted(e for e in set(liab) & set(eq) if e >= "2017-01-01")
         fund[sym] = {
-            "q": [[e, rev.get(e), op.get(e), ni.get(e)] for e in ends],
+            # [분기말, 매출, 영업이익, 순이익, 희석EPS, 영업현금흐름, 설비투자]
+            "q": [[e, rev.get(e), op.get(e), ni.get(e), eps.get(e), ocf.get(e), capex.get(e)] for e in ends],
+            "sh": [[d, v] for d, v in sorted(shares.items()) if d >= "2017-01-01"][-12:],
             "b": [[e, liab[e], eq[e]] for e in bal],
         }
         ok += 1
@@ -506,8 +564,102 @@ def descriptions(meta):
     print(f"desc: {len(desc)} (new {len(eng)})")
 
 
+# ---------- 6. 관심 종목 위험 정보 (실적 발표일·공매도·내부자·투자의견·뉴스) ----------
+def _watch_set(meta):
+    """1년 최고가보다 20% 이상 낮은 종목 + 최근 악재 기간에 20% 이상 빠진 종목"""
+    pr = load("prices_recent.json", {"dates": [], "p": {}})
+    dates, out = pr["dates"], set()
+    n = len(dates)
+    for s, p in pr["p"].items():
+        last = [v for v in p[-252:] if v is not None]
+        if last and last[-1] <= max(last) * 0.8:
+            out.add(s)
+    return sorted(out)
+
+
+def _news_items(t):
+    items = []
+    for it in (t.news or [])[:6]:
+        c = it.get("content", it)
+        title = c.get("title") or ""
+        url = (c.get("canonicalUrl") or {}).get("url") or c.get("link") or ""
+        prov = (c.get("provider") or {}).get("displayName") or c.get("publisher") or ""
+        when = c.get("pubDate") or ""
+        if not when and it.get("providerPublishTime"):
+            when = datetime.fromtimestamp(it["providerPublishTime"], timezone.utc).isoformat()
+        if title:
+            items.append({"t": title, "u": url, "s": prov, "d": when[:10]})
+    return items[:3]
+
+
+def _risk_one(sym):
+    import yfinance as yf
+    t = yf.Ticker(sym.replace(".", "-"))
+    r = {"u": date.today().isoformat()}
+    try:
+        cal = t.calendar or {}
+        ed = cal.get("Earnings Date") if isinstance(cal, dict) else None
+        if ed:
+            r["ed"] = str(ed[0])[:10]
+    except Exception:
+        pass
+    try:
+        info = t.info or {}
+        if info.get("shortPercentOfFloat") is not None:
+            r["sp"] = round(float(info["shortPercentOfFloat"]) * 100, 1)
+    except Exception:
+        pass
+    try:
+        ip = t.insider_purchases
+        if ip is not None and not ip.empty:
+            col0 = ip.columns[0]
+            rows = {str(x).lower(): i for i, x in enumerate(ip[col0])}
+            def val(key, col="Shares"):
+                i = next((i for k, i in rows.items() if k.startswith(key)), None)
+                return None if i is None else float(ip.iloc[i][col])
+            r["ins"] = {"net": val("net shares"), "buy": val("purchases", "Trans"), "sell": val("sales", "Trans")}
+    except Exception:
+        pass
+    try:
+        ud = t.upgrades_downgrades
+        if ud is not None and not ud.empty:
+            ud = ud[ud.index >= (datetime.now() - timedelta(days=550))]
+            r["ud"] = [[d.strftime("%Y-%m-%d"), a] for d, a in zip(ud.index, ud["Action"]) if a in ("up", "down")]
+    except Exception:
+        pass
+    try:
+        r["news"] = _news_items(t)
+    except Exception:
+        pass
+    return sym, r
+
+
+def risk_info(meta):
+    from concurrent.futures import ThreadPoolExecutor
+    risk = load("risk.json", {})
+    today = date.today().isoformat()
+    watch = [s for s in _watch_set(meta) if risk.get(s, {}).get("u") != today]
+    with ThreadPoolExecutor(6) as ex:
+        for sym, r in ex.map(_risk_one, watch):
+            old = {n["t"]: n.get("k") for n in risk.get(sym, {}).get("news", [])}
+            for n in r.get("news", []):
+                if old.get(n["t"]):
+                    n["k"] = old[n["t"]]
+            risk[sym] = r
+    # 새 뉴스 제목만 12개씩 묶어 번역
+    todo = [n for r in risk.values() for n in r.get("news", []) if not n.get("k")]
+    for i in range(0, len(todo), 12):
+        chunk = todo[i:i + 12]
+        for n, k in zip(chunk, translate_many([n["t"] for n in chunk])):
+            if k:
+                n["k"] = k
+        time.sleep(2)
+    save("risk.json", risk)
+    print(f"risk: {len(watch)} refreshed, {len(risk)} total")
+
+
 def main():
-    steps = sys.argv[1:] or ["meta", "prices", "fund", "est", "desc"]
+    steps = sys.argv[1:] or ["meta", "prices", "fund", "est", "risk", "desc"]
     meta = constituents()
     if "meta" in steps:
         save("meta.json", {k: {"n": v["n"], "s": v["s"], "i": v["i"]} for k, v in meta.items()})
@@ -518,6 +670,8 @@ def main():
         fundamentals(meta)
     if "est" in steps:
         estimates(meta)
+    if "risk" in steps:
+        risk_info(meta)
     if "desc" in steps:
         descriptions(meta)
     save("updated.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes")})
