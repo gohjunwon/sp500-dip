@@ -160,11 +160,21 @@ function screen(shock, ai, bt) {
       const lq = D.liq[r.s]; if (lq != null) extra.push({ name: '거래대금', st: lq < 30 ? 'warn' : 'info', txt: `하루 거래대금 $${lq >= 1000 ? (lq / 1000).toFixed(1) + 'B' : Math.round(lq) + 'M'}` });
       if (v.mcap) extra.push({ name: '시총', st: 'info', txt: `시가총액 $${v.mcap >= 1e12 ? (v.mcap / 1e12).toFixed(2) + 'T' : (v.mcap / 1e9).toFixed(0) + 'B'}` });
     }
-    const all = tests.concat(extra);
+    // 회복 패턴 4가지 (2025년 악재 분석 결과)
+    const pat = [];
+    const P = (on, ok, val, txt) => pat.push({ st: val == null ? 'unk' : ok ? 'ok' : (on ? 'bad' : 'warn'), txt: val == null ? txt + ' 자료없음' : txt, hit: val != null && ok });
+    P(C('gRev'), f.rev >= V('vgRev'), f.rev, `매출 성장 ${f.rev != null ? fmt(f.rev, 0) : ''} ${f.rev >= V('vgRev') ? '≥' : '<'} ${V('vgRev')}%`);
+    const rebOk = bs ? (bs.above || r.rec >= V('vgReb')) : r.rec >= V('vgReb');
+    P(C('gReb'), rebOk, r.rec, rebOk ? `반등 시작 (${bs && bs.above ? '20일선 위' : ''}${bs && bs.above && r.rec >= V('vgReb') ? '·' : ''}${r.rec >= V('vgReb') ? `최고가의 ${Math.round(r.rec)}%` : ''})` : `반등 전 (최고가의 ${Math.round(r.rec)}%, 20일선 아래)`);
+    const perRel = v.per > 0 && v.perMed ? v.per / v.perMed * 100 : null;
+    P(C('gPer'), perRel >= V('vgPer'), perRel, perRel != null ? `PER 평소의 ${Math.round(perRel)}%${perRel < V('vgPer') ? ' — 가치 함정 주의' : ''}` : 'PER 비교');
+    P(C('gDrop'), r.dLow >= -V('vgDrop'), r.dLow, `낙폭 ${fmt(r.dLow, 0)} ${r.dLow >= -V('vgDrop') ? '≤' : '>'} ${V('vgDrop')}%`);
+    r.pat = pat; r.score = pat.filter(x => x.hit).length;
+    const all = tests.concat(extra, pat);
     if (all.some(t => t.st === 'bad' || (t.st === 'unk' && !unkPass))) continue;
     res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
   }
-  res.sort((x, y) => x.warn - y.warn || y.up - x.up);
+  res.sort((x, y) => y.score - x.score || x.warn - y.warn || y.up - x.up);
   return { res, cand, secMed, i0, b };
 }
 
@@ -226,7 +236,7 @@ async function run() {
   $('secBox').style.display = '';
   $('secs').innerHTML = Object.entries(secMed).sort((a, b) => a[1] - b[1]).map(([k, v]) => `<span class="b">${k} ${fmt(v, 0)}</span>`).join('');
   const minGap = V('minGap');
-  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(노란색 적은 순 → 회복 여력 큰 순)</span>`;
+  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 패턴 많은 순 → 노란색 적은 순 → 회복 여력 큰 순)</span>`;
   const mix = {}; res.forEach(r => mix[r.m.s] = (mix[r.m.s] || 0) + 1);
   $('mix').innerHTML = res.length ? `결과 업종 분포: ${Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')} — 한 업종·한 종목에 몰리지 않게 나눠 담는 것이 일반적인 위험 관리 방법입니다.` : '';
   const badge = t => `<span class="b ${t.st}">${t.st === 'ok' ? '✓' : t.st === 'bad' ? '✗' : t.st === 'warn' ? '△' : t.st === 'info' ? '·' : '?'} ${t.txt}</span>`;
@@ -237,7 +247,8 @@ async function run() {
    <span class="nm"> ${esc(r.m.n)}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up, 0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
    ${D.desc && D.desc[r.s] ? `<div class="desc">${esc(D.desc[r.s])}</div>` : ''}
    <div class="px">${r.m.s} · ${esc(r.m.i)}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
-   <div class="badges">${r.tests.map(badge).join('')}</div>
+   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 패턴 ${r.score}/4</span>${r.pat.map(badge).join('')}</div>
+   <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>
    <details class="more"><summary>최근 회사 뉴스</summary>${news || '<div class="note">저장된 뉴스 없음</div>'}
    <a href="https://news.google.com/search?q=${encodeURIComponent(r.m.n + ' stock')}&hl=ko&gl=KR&ceid=KR:ko" target="_blank" rel="noopener">구글 뉴스에서 더 보기 →</a></details></div>`
