@@ -146,7 +146,19 @@ def main():
                 continue
             if f["ni"] is not None and f["ni"] <= 0:
                 continue
-            row = {"shock": sh["d"], "s": s, "sec": meta[s]["s"], "drop": round(float(drop[s]), 1)}
+            px = df[s]
+            pre_px = px.iloc[:i0 + 1].dropna()
+            mom = float(pre_px.iloc[-1] / pre_px.iloc[-253] - 1) * 100 if len(pre_px) > 253 else None
+            vol = float(pre_px.pct_change().tail(60).std() * (252 ** 0.5) * 100) if len(pre_px) > 61 else None
+            w = px.iloc[:entry + 1].dropna().tail(20)
+            above20 = bool(len(w) == 20 and w.iloc[-1] > w.mean())
+            low_i = int(df[s].iloc[i0 + 1:b + 1].values.argmin()) + i0 + 1
+            row = {"shock": sh["d"], "s": s, "sec": meta[s]["s"], "sub": meta[s]["i"], "drop": round(float(drop[s]), 1),
+                   "market": "시장 전체" in sh["g"], "shock_dd": sh["dd"], "sec_med": round(float(sec_med[meta[s]["s"]]), 1),
+                   "rev": f["rev"], "op": f["op"], "de": f["de"], "ni_pos": (f["ni"] or 0) > 0,
+                   "rec_entry": round(float(e_px / high[s] * 100), 1), "above20": above20,
+                   "days_from_low": entry - low_i, "mom12": mom, "vol60": vol,
+                   "rel_drop": round(float(drop[s] - sec_med[meta[s]["s"]]), 1)}
             for k, n in H.items():
                 t = entry + n
                 if t > last:
