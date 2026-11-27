@@ -119,11 +119,14 @@ def prices(symbols):
 
 
 # ---------- 2-1. 악재 자동 찾기 ----------
-KNOWN = [  # 이름 붙이기용 (날짜 ±25일 안이면 이 이름 사용)
-    ("2020-02-21", "코로나19 팬데믹"), ("2022-01-04", "금리 인상 충격"),
-    ("2022-05-05", "금리 인상·인플레이션"), ("2023-03-09", "SVB 은행 파산"),
-    ("2024-08-01", "엔캐리 청산"), ("2025-04-03", "트럼프 상호관세"),
-    ("2026-03-02", "이란 전쟁·호르무즈 해협 봉쇄"),
+KNOWN = [  # 이름 붙이기용 (날짜 -7일~+14일 안이면 이 이름 사용), 뉴스 검색어
+    ("2020-02-21", "코로나19 팬데믹", "coronavirus stocks plunge"),
+    ("2022-01-04", "금리 인상 충격", "Fed rate hike stocks fall"),
+    ("2022-05-05", "금리 인상·인플레이션", "inflation stocks sell-off"),
+    ("2023-03-09", "SVB 은행 파산", "SVB bank stocks plunge"),
+    ("2024-08-01", "엔캐리 청산", "yen carry trade stocks plunge"),
+    ("2025-04-03", "트럼프 상호관세", "tariffs stocks plunge"),
+    ("2026-03-02", "이란 전쟁·호르무즈 해협 봉쇄", "Strait of Hormuz stocks fall"),
 ]
 
 
@@ -214,6 +217,8 @@ def shock_news(e, n=5):
         queries = ["stock market sell-off", "stocks plunge Wall Street", "S&P 500 falls why"]
     else:
         queries = [f"{en} stocks plunge", f"{en} stocks sell-off", "stock market sell-off"]
+    if e.get("q"):
+        queries = [e["q"]] + queries
     out, seen = [], set()
     for q in queries:
         for it in google_news(q, d_from, d_to, "en"):
@@ -314,7 +319,8 @@ def find_shocks(df, meta, keep=6):
     names = load("ko_names.json", {})
     out = []
     for m in merged:
-        name = next((n for d, n in KNOWN if -7 <= _days(m["d"], d) <= 14), None)
+        kn = next((k for k in KNOWN if -7 <= _days(m["d"], k[0]) <= 14), None)
+        name = kn[1] if kn else None
         gs = sorted(m["g"], key=level)
         en = "Stock market" if gs[0] == "시장 전체" else SECTOR_EN.get(gs[0], gs[0])
         ko = []
@@ -325,11 +331,12 @@ def find_shocks(df, meta, keep=6):
                     names[g] = k
             ko.append(names.get(g, g))
         who = "시장 전체" if gs[0] == "시장 전체" else "·".join(ko) + (" 등" if len(gs) > 2 else "")
-        out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"]})
+        out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"],
+                    "q": kn[2] if kn else ""})
     save("ko_names.json", names)
-    cached = {x["d"]: x.get("news") for x in load("shocks.json", []) if x.get("news")}
+    cached = {(x["d"], x.get("q", "")): x.get("news") for x in load("shocks.json", []) if x.get("news")}
     for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음 (번역만 빠진 것은 다시 번역)
-        news = cached.get(e["d"]) or shock_news(e)
+        news = cached.get((e["d"], e["q"])) or shock_news(e)
         miss = [it for it in news if not it.get("k")]
         if miss:
             for it, k in zip(miss, translate_many([it["t"] for it in miss])):
