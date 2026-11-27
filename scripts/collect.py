@@ -122,6 +122,10 @@ NEWS_TERM = {
 }
 
 
+NEWS_KEYS = ["slump", "tumble", "sink", "drop", "rout", "crash", "selloff", "tariff", "rate", "fear", "증시", "주가", "급락", "하락", "폭락", "나스닥", "s&p", "다우", "주식", "기술주", "은행주", "매도",
+             "관세", "금리", "stock", "market", "plunge", "fall", "sell-off", "selloff", "nasdaq", "dow"]
+
+
 def google_news(q, d_from, d_to, lang="ko"):
     import urllib.parse
     import xml.etree.ElementTree as ET
@@ -144,24 +148,52 @@ def google_news(q, d_from, d_to, lang="ko"):
     return items
 
 
-def shock_news(e, n=4):
-    """악재 날짜 앞뒤 뉴스 제목을 받아와 원인 확인용으로 붙이기"""
+SECTOR_EN = {v: k for k, v in SECTOR_KO.items()}
+
+
+def translate_ko(text):
+    """영어 → 한국어 (구글 번역 공개 주소, 실패하면 빈 문자열)"""
+    import urllib.parse
+    url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q="
+           + urllib.parse.quote(text))
+    try:
+        data = json.loads(get(url))
+        return "".join(seg[0] for seg in data[0] if seg and seg[0]).strip()
+    except Exception as e:
+        print("translate fail", e)
+        return ""
+
+
+def shock_news(e, n=5):
+    """악재 날짜 앞뒤 영어 뉴스 제목을 받아 한국어 번역과 함께 붙이기"""
     d = date.fromisoformat(e["d"])
     d_from, d_to = (d - timedelta(days=3)).isoformat(), (d + timedelta(days=7)).isoformat()
     first = e["who"].split("·")[0].replace(" 등", "")
-    term = NEWS_TERM.get(first, "뉴욕증시")
+    if first == "시장 전체":
+        queries = ["stock market sell-off", "stocks plunge Wall Street", "S&P 500 falls why"]
+    else:
+        en = SECTOR_EN.get(first, first)
+        queries = [f"{en} stocks plunge", f"{en} stocks sell-off", "stock market sell-off"]
     out, seen = [], set()
-    for q, lang in ((f"{term} 급락", "ko"), ("뉴욕증시 급락 이유", "ko"),
-                    ("stocks plunge" if first == "시장 전체" else f"{first} stocks plunge", "en")):
-        for it in google_news(q, d_from, d_to, lang):
-            key = it["t"][:25]
-            if key in seen:
+    for q in queries:
+        for it in google_news(q, d_from, d_to, "en"):
+            key = it["t"][:30].lower()
+            if key in seen or not any(k in it["t"].lower() for k in NEWS_KEYS):
                 continue
             seen.add(key)
+            it["k"] = translate_ko(it["t"])
+            time.sleep(0.3)
             out.append(it)
             if len(out) >= n:
                 return out
         time.sleep(1)
+    if not out:  # 영어 뉴스가 없으면 한국어 뉴스로
+        for it in google_news(f"{NEWS_TERM.get(first, '뉴욕증시')} 급락", d_from, d_to, "ko"):
+            if any(k in it["t"].lower() for k in NEWS_KEYS):
+                it["k"] = it["t"]
+                out.append(it)
+                if len(out) >= n:
+                    break
     return out
 
 
@@ -208,7 +240,7 @@ def find_shocks(df, meta, keep=6):
             merged.append({"d": e["d"], "g": [e["g"]], "dd": e["dd"], "t": e["t"]})
     out = []
     for m in merged[-keep:]:
-        name = next((n for d, n in KNOWN if abs(_days(d, m["d"])) <= 25), None)
+        name = next((n for d, n in KNOWN if -25 <= _days(m["d"], d) <= max(25, _days(m["d"], m["t"]) + 5)), None)
         gs = m["g"]
         who = "시장 전체" if "시장 전체" in gs else "·".join(gs[:2]) + (" 등" if len(gs) > 2 else "")
         out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "dd": m["dd"]})

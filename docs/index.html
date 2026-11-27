@@ -142,8 +142,8 @@ function showNews(shock){
   const x=SHOCKS.find(e=>Math.abs(new Date(e.d)-new Date(shock))<=5*864e5);const box=$('newsBox');
   if(!x){box.style.display='none';return}
   box.style.display='';
-  box.innerHTML=`<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}% · 그 무렵 뉴스</small>`+
-    ((x.news||[]).length?x.news.map(n=>`<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)} <small>${esc(n.s)} ${esc(n.d)}</small></a>`).join(''):'<div class="note" style="margin-top:5px">관련 뉴스를 찾지 못했습니다</div>');
+  box.innerHTML=`<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}% · 그 무렵 해외 뉴스 (한국어 번역)</small>`+
+    ((x.news||[]).length?x.news.map(n=>`<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.k||n.t)}${n.k&&n.k!==n.t?`<br><small>${esc(n.t)}</small>`:''} <small>· ${esc(n.s)} ${esc(n.d)}</small></a>`).join(''):'<div class="note" style="margin-top:5px">관련 뉴스를 찾지 못했습니다</div>');
 }
 async function run(){
   if(!D.meta)return;
