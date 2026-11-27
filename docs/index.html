@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>S&P 500 악재 낙폭 검색기</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#76746d;--line:#e4e1d8;--ok:#1f7a4d;--bad:#b3261e;--unk:#a07a10;--acc:#24477a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+header{padding:18px 16px 6px;max-width:760px;margin:auto}
+h1{font-size:20px;margin:0}
+.sub{color:var(--mute);font-size:13px;margin-top:2px}
+main{max-width:760px;margin:auto;padding:0 12px 40px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
+input[type=date],input[type=number],select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>div{flex:1 1 140px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.presets button,.go{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px}
+.go{background:var(--acc);color:#fff;border:none;font-size:15px;padding:11px;border-radius:12px;width:100%;margin-top:12px;font-weight:600}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+.crit{display:grid;grid-template-columns:auto 1fr 76px;gap:8px 10px;align-items:center;margin-top:10px;font-size:14px}
+.crit input[type=number]{padding:6px 8px}
+.note{font-size:12px;color:var(--mute)}
+.summary{font-size:14px;margin:12px 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:8px 0}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.tk{font-weight:700;font-size:17px}
+.tk a{color:inherit;text-decoration:none}
+.nm{color:var(--mute);font-size:13px}
+.drop{font-size:13px;color:var(--bad);white-space:nowrap}
+.up{font-weight:700;font-size:18px;color:var(--ok);white-space:nowrap}
+.px{font-size:13px;color:var(--mute)}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.b{font-size:12px;border-radius:8px;padding:3px 7px;background:#f0efe9}
+.b.ok{color:var(--ok);background:#e7f3ec}.b.bad{color:var(--bad);background:#f8e8e6}.b.unk{color:var(--unk);background:#f7f0dc}
+.secs{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.news{margin-top:10px;background:#f7f6f1;border-radius:10px;padding:10px 12px;font-size:13px}
+.news a{color:var(--acc);text-decoration:none;display:block;margin-top:5px}
+.news small{color:var(--mute)}
+.presets button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.empty{text-align:center;color:var(--mute);padding:30px 10px}
+footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(--mute)}
+</style>
+</head>
+<body>
+<header>
+  <h1>S&P 500 악재 낙폭 검색기</h1>
+  <div class="sub">기업 체력은 그대로인데 외부 악재로 크게 빠진 종목 찾기 · <span id="upd">불러오는 중…</span></div>
+</header>
+<main>
+  <div class="panel">
+    <label for="shock">악재 날짜 — 이전 2달 최고가 vs 이후 2달 최저가를 비교</label>
+    <input type="date" id="shock" min="2019-09-01">
+    <div class="presets" id="presets"><span class="note">최근 악재 불러오는 중…</span></div>
+    <div id="newsBox" class="news" style="display:none"></div>
+    <div class="row" style="margin-top:12px">
+      <div><label for="minDrop">최고→최저 하락률 (%)</label><input type="number" id="minDrop" value="30" min="5" max="90"></div>
+      <div><label for="maxRec">이미 회복 제외 (최고가의 % 이상)</label><input type="number" id="maxRec" value="90" min="50" max="100"></div>
+    </div>
+    <details style="margin-top:14px">
+      <summary>가치 유지 조건 설정</summary>
+      <div class="crit">
+        <input type="checkbox" id="cSec" checked><span>업종 전체 동반 하락 (업종 중간값 최대 낙폭 ≥ %)</span><input type="number" id="vSec" value="15">
+        <input type="checkbox" id="cRev" checked><span>악재 전 분기 매출, 1년 전 대비 ≥ %</span><input type="number" id="vRev" value="0">
+        <input type="checkbox" id="cOp" checked><span>악재 전 분기 영업이익, 1년 전 대비 ≥ %</span><input type="number" id="vOp" value="0">
+        <input type="checkbox" id="cEst" checked><span>내년 EPS 전망 하향 폭 ≤ %</span><input type="number" id="vEst" value="10">
+        <input type="checkbox" id="cDe" checked><span>부채비율 ≤ % (금융·부동산 제외)</span><input type="number" id="vDe" value="300">
+        <input type="checkbox" id="cNi" checked><span>악재 전 1년 순이익 흑자</span><span></span>
+      </div>
+      <label style="margin-top:12px;display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px">
+        <input type="checkbox" id="unkPass" checked> 자료가 없는 조건은 통과로 처리 (노란색 ? 표시)</label>
+      <p class="note">실적은 악재 날짜 <b>이전에 끝난 분기</b>만 사용합니다. 최근 분기는 악재 영향을 받았을 수 있기 때문입니다. EPS 전망은 이 사이트가 매일 기록을 쌓기 시작한 시점부터만 비교할 수 있어, 그보다 오래된 악재 날짜에서는 ? 로 표시됩니다.</p>
+    </details>
+    <button class="go" id="go">검색</button>
+  </div>
+  <div id="secBox" class="panel" style="display:none"><div style="font-size:13px;font-weight:600">업종별 최대 낙폭 (중간값)</div><div class="secs" id="secs"></div></div>
+  <div class="summary" id="summary"></div>
+  <div id="list"></div>
+</main>
+<footer>자료: 주가·EPS 전망 Yahoo Finance, 실적·재무 SEC 공시(XBRL). 매일 미국장 마감 후 자동 갱신. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
+<script>
+const $=id=>document.getElementById(id);
+const D={};let oldLoaded=false;let SHOCKS=[];
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const BASE=location.protocol==='file:'?'https://gohjunwon.github.io/sp500-dip/':'';
+const fetchJSON=f=>fetch(BASE+'data/'+f+'?t='+Date.now(),{cache:'no-store'}).then(r=>{if(!r.ok)throw f;return r.json()});
+async function init(){
+  try{
+    const shocks=await fetchJSON('shocks.json').catch(()=>[]);SHOCKS=shocks;
+    $('presets').innerHTML=shocks.length?shocks.slice(0,6).map(x=>`<button data-d="${x.d}" title="${x.who} ${x.dd}%">${esc(x.name)} (${x.d.slice(0,7).replace('-','.')})</button>`).join(''):'<span class="note">악재 목록 없음</span>';
+    document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{$('shock').value=b.dataset.d;run()});
+    if(!$('shock').value&&shocks.length)$('shock').value=shocks[0].d;
+    const [meta,pr,fund,est,upd]=await Promise.all(['meta.json','prices_recent.json','fund.json','est.json','updated.json'].map(fetchJSON));
+    Object.assign(D,{meta,fund,est,dates:pr.dates,p:pr.p});
+    $('upd').textContent='갱신 '+new Date(upd.t).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    run();
+  }catch(e){$('upd').textContent='데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)';}
+}
+async function ensureOld(shock){
+  if(oldLoaded||shock>='2024-03-05')return;
+  $('summary').textContent='예전 주가 불러오는 중…';
+  const o=await fetchJSON('prices_old.json');
+  for(const s in D.p){D.p[s]=(o.p[s]||o.dates.map(()=>null)).concat(D.p[s]);}
+  D.dates=o.dates.concat(D.dates);oldLoaded=true;
+}
+const pct=(a,b)=>(a/b-1)*100;
+const fmt=(v,d=1)=>(v>0?'+':'')+v.toFixed(d)+'%';
+function lastBefore(arr,key){let r=null;for(const x of arr){if(x[0]<key)r=x;else break}return r}
+function fundCheck(sym,shock){
+  const f=D.fund[sym];const out={rev:null,op:null,ni:null,de:null,q:null};
+  if(!f)return out;
+  const qs=f.q.filter(x=>x[0]<shock);
+  if(qs.length){
+    const cur=qs[qs.length-1];out.q=cur[0];
+    const t=new Date(cur[0]);
+    const prev=qs.find(x=>{const d=(t-new Date(x[0]))/864e5;return d>330&&d<400});
+    if(prev){
+      if(cur[1]!=null&&prev[1]>0)out.rev=pct(cur[1],prev[1]);
+      if(cur[2]!=null&&prev[2]!=null&&prev[2]!==0)out.op=prev[2]>0?pct(cur[2],prev[2]):(cur[2]>prev[2]?999:-999);
+    }
+    const last4=qs.slice(-4);
+    if(last4.length===4&&last4.every(x=>x[3]!=null)&&(new Date(last4[3][0])-new Date(last4[0][0]))/864e5<300)out.ni=last4.reduce((a,x)=>a+x[3],0);
+  }
+  const b=lastBefore(f.b,shock);
+  if(b&&b[2]>0)out.de=b[1]/b[2]*100;
+  return out;
+}
+function estCheck(sym,shock){
+  const h=D.est[sym];if(!h)return null;
+  const ks=Object.keys(h).sort();if(!ks.length)return null;
+  let base=null;for(const k of ks){if(k<shock)base=k;else break}
+  if(!base)return null;
+  const a=h[base],b=h[ks[ks.length-1]];
+  if(!(a>0))return null;
+  return pct(b,a);
+}
+function showNews(shock){
+  document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on',b.dataset.d===shock));
+  const x=SHOCKS.find(e=>Math.abs(new Date(e.d)-new Date(shock))<=5*864e5);const box=$('newsBox');
+  if(!x){box.style.display='none';return}
+  box.style.display='';
+  box.innerHTML=`<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}% · 그 무렵 뉴스</small>`+
+    ((x.news||[]).length?x.news.map(n=>`<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.t)} <small>${esc(n.s)} ${esc(n.d)}</small></a>`).join(''):'<div class="note" style="margin-top:5px">관련 뉴스를 찾지 못했습니다</div>');
+}
+async function run(){
+  if(!D.meta)return;
+  const shock=$('shock').value;if(!shock)return;
+  await ensureOld(shock);
+  showNews(shock);
+  const dates=D.dates;
+  const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+  const preFrom=addDays(shock,-60),postTo=addDays(shock,60);
+  let a=dates.findIndex(d=>d>=preFrom),i0=-1,b=-1;
+  dates.forEach((d,i)=>{if(d<shock)i0=i;if(d<=postTo)b=i});
+  if(a<0||i0<0||i0>=dates.length-1){$('summary').textContent='해당 날짜의 주가 자료가 없습니다.';$('list').innerHTML='';return}
+  const rows=[];const secDrops={};
+  for(const s in D.meta){
+    const p=D.p[s];if(!p)continue;
+    let high=-1,hi=-1,low=Infinity,li=-1,now=null;
+    for(let i=a;i<=i0;i++)if(p[i]!=null&&p[i]>high){high=p[i];hi=i}
+    for(let i=i0+1;i<=b;i++)if(p[i]!=null&&p[i]<low){low=p[i];li=i}
+    for(let i=p.length-1;i>i0;i--)if(p[i]!=null){now=p[i];break}
+    if(hi<0||li<0||now==null)continue;
+    const r={s,m:D.meta[s],pre:high,low,now,hd:dates[hi],ld:dates[li],dLow:pct(low,high),dNow:pct(now,high),up:pct(high,now),rec:now/high*100};
+    (secDrops[r.m.s]=secDrops[r.m.s]||[]).push(r.dLow);rows.push(r);
+  }
+  const secMed={};for(const k in secDrops){const a=secDrops[k].sort((x,y)=>x-y);secMed[k]=a[Math.floor(a.length/2)]}
+  $('secBox').style.display='';
+  $('secs').innerHTML=Object.entries(secMed).sort((a,b)=>a[1]-b[1]).map(([k,v])=>`<span class="b">${k} ${fmt(v,0)}</span>`).join('');
+  const minDrop=+$('minDrop').value,maxRec=+$('maxRec').value,unkPass=$('unkPass').checked;
+  const C=id=>$(id).checked,V=id=>+$(id).value;
+  const res=[];let cand=0;
+  for(const r of rows){
+    const drop=r.dLow;
+    if(drop>-minDrop)continue;cand++;
+    if(r.rec>=maxRec)continue;
+    const f=fundCheck(r.s,shock),e=estCheck(r.s,shock),fin=r.m.s==='금융'||r.m.s==='부동산';
+    const tests=[];
+    const T=(on,name,val,pass,txt)=>{if(!on)return;tests.push({name,st:val==null?'unk':(pass?'ok':'bad'),txt:val==null?name+' 자료없음':txt})};
+    T(C('cSec'),'업종',secMed[r.m.s],secMed[r.m.s]<=-V('vSec'),`업종 동반 ${fmt(secMed[r.m.s],0)}`);
+    T(C('cRev'),'매출',f.rev,f.rev>=V('vRev'),`매출 ${f.rev!=null?fmt(f.rev):''}`);
+    T(C('cOp'),'영업이익',f.op,f.op>=V('vOp'),`영업이익 ${f.op==null?'':Math.abs(f.op)===999?(f.op>0?'적자축소':'적자확대'):fmt(f.op)}`);
+    T(C('cEst'),'EPS전망',e,e>=-V('vEst'),`EPS전망 ${e!=null?fmt(e):''}`);
+    if(C('cDe')&&!fin)T(true,'부채비율',f.de,f.de<=V('vDe'),`부채비율 ${f.de!=null?f.de.toFixed(0)+'%':''}`);
+    T(C('cNi'),'순이익',f.ni,f.ni>0,f.ni>0?'1년 흑자':'1년 적자');
+    if(tests.some(t=>t.st==='bad'||(t.st==='unk'&&!unkPass)))continue;
+    res.push({...r,drop,tests,q:f.q,unk:tests.filter(t=>t.st==='unk').length});
+  }
+  res.sort((a,b)=>a.unk-b.unk||b.up-a.up);
+  $('summary').innerHTML=`<b>${shock}</b> 악재 · 전후 2달 ${minDrop}% 이상 하락 <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 여력 큰 순)</span>`;
+  $('list').innerHTML=res.length?res.map(r=>`
+   <div class="card"><div class="top"><div><span class="tk"><a href="https://finance.yahoo.com/quote/${r.s.replace('.','-')}" target="_blank">${r.s}</a></span>
+   <span class="nm"> ${r.m.n}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up,0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
+   <div class="px">${r.m.s} · ${r.m.i}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q?` · 실적 기준 분기 ${r.q.slice(0,7)}`:''}</div>
+   <div class="badges">${r.tests.map(t=>`<span class="b ${t.st}">${t.st==='ok'?'✓':t.st==='bad'?'✗':'?'} ${t.txt}</span>`).join('')}</div></div>`).join('')
+   :'<div class="empty">조건을 모두 통과한 종목이 없습니다.<br>하락률이나 조건을 조금 낮춰 보세요.</div>';
+}
+$('go').onclick=run;
+init();
+</script>
+</body>
+</html>
