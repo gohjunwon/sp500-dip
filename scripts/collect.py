@@ -85,9 +85,21 @@ def constituents():
 def prices(symbols):
     import yfinance as yf
     ymap = {s: s.replace(".", "-") for s in symbols}
-    df = yf.download(list(ymap.values()), start="2019-06-01", auto_adjust=True,
-                     progress=False, threads=True)["Close"]
-    df = df.dropna(how="all")
+    raw = yf.download(list(ymap.values()), start="2019-06-01", auto_adjust=True,
+                      progress=False, threads=True)
+    df = raw["Close"].dropna(how="all")
+    op = raw["Open"].reindex(df.index)
+    # 갭하락: 시가가 전날 종가보다 1% 이상 낮게 시작한 날만 기록 (용량 절약)
+    gap = (op / df.shift(1) - 1) * 100
+    gaps = {}
+    for s, y in ymap.items():
+        if y not in gap.columns:
+            continue
+        col = gap[y]
+        hit = col[col <= -1].dropna()
+        if len(hit):
+            gaps[s] = [[d.strftime("%Y-%m-%d"), round(float(v), 1)] for d, v in hit.items()]
+    save("gaps.json", gaps)
     dates = [d.strftime("%Y-%m-%d") for d in df.index]
     cut = next(i for i, d in enumerate(dates) if d >= "2024-01-01")
     recent = {"dates": dates[cut:], "p": {}}

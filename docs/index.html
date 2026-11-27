@@ -59,6 +59,7 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
     <div id="newsBox" class="news" style="display:none"></div>
     <div class="row" style="margin-top:12px">
       <div><label for="minDrop">최고→최저 하락률 (%)</label><input type="number" id="minDrop" value="30" min="5" max="90"></div>
+      <div><label for="minGap">악재 후 2달 중 갭하락 최소 % (0=사용 안 함)</label><input type="number" id="minGap" value="0" min="0" max="50" step="0.5"></div>
       <div><label for="maxRec">이미 회복 제외 (최고가의 % 이상)</label><input type="number" id="maxRec" value="90" min="50" max="100"></div>
     </div>
     <details style="margin-top:14px">
@@ -99,6 +100,11 @@ async function init(){
     $('upd').textContent='갱신 '+new Date(upd.t).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
     run();
   }catch(e){$('upd').textContent='데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)';}
+}
+async function ensureGaps(){
+  if(D.gaps)return;
+  $('summary').textContent='갭하락 자료 불러오는 중…';
+  D.gaps=await fetchJSON('gaps.json');
 }
 async function ensureOld(shock){
   if(oldLoaded||shock>='2024-03-05')return;
@@ -150,6 +156,7 @@ async function run(){
   if(!D.meta)return;
   const shock=$('shock').value;if(!shock)return;
   await ensureOld(shock);
+  const minGap=+$('minGap').value;if(minGap>0)await ensureGaps();
   showNews(shock);
   const dates=D.dates;
   const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
@@ -176,7 +183,12 @@ async function run(){
   const res=[];let cand=0;
   for(const r of rows){
     const drop=r.dLow;
-    if(drop>-minDrop)continue;cand++;
+    if(drop>-minDrop)continue;
+    if(minGap>0){
+      let g=0;for(const [d,v] of (D.gaps[r.s]||[]))if(d>=shock&&d<=postTo&&v<g){g=v;r.gd=d}
+      r.gap=g;if(g>-minGap)continue;
+    }
+    cand++;
     if(r.rec>=maxRec)continue;
     const f=fundCheck(r.s,shock),e=estCheck(r.s,shock),fin=r.m.s==='금융'||r.m.s==='부동산';
     const tests=[];
@@ -192,18 +204,18 @@ async function run(){
     res.push({...r,drop,tests,q:f.q,unk:tests.filter(t=>t.st==='unk').length});
   }
   res.sort((a,b)=>a.unk-b.unk||b.up-a.up);
-  $('summary').innerHTML=`<b>${shock}</b> 악재 · 전후 2달 ${minDrop}% 이상 하락 <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 여력 큰 순)</span>`;
+  $('summary').innerHTML=`<b>${shock}</b> 악재 · 전후 2달 ${minDrop}% 이상 하락${minGap>0?` + 갭하락 ${minGap}%↑`:''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 여력 큰 순)</span>`;
   $('list').innerHTML=res.length?res.map(r=>`
    <div class="card"><div class="top"><div><span class="tk"><a href="https://finance.yahoo.com/quote/${r.s.replace('.','-')}" target="_blank">${r.s}</a></span>
    <span class="nm"> ${r.m.n}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up,0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
-   <div class="px">${r.m.s} · ${r.m.i}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q?` · 실적 기준 분기 ${r.q.slice(0,7)}`:''}</div>
+   <div class="px">${r.m.s} · ${r.m.i}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q?` · 실적 기준 분기 ${r.q.slice(0,7)}`:''}${r.gap?` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})`:''}</div>
    <div class="badges">${r.tests.map(t=>`<span class="b ${t.st}">${t.st==='ok'?'✓':t.st==='bad'?'✗':'?'} ${t.txt}</span>`).join('')}</div></div>`).join('')
    :'<div class="empty">조건을 모두 통과한 종목이 없습니다.<br>하락률이나 조건을 조금 낮춰 보세요.</div>';
 }
 $('go').onclick=run;
 init();
 // 페이지를 열어 둔 동안에도 10분마다 새 데이터 확인
-setInterval(async()=>{try{const u=await fetchJSON('updated.json');if(u.t!==D.updT){oldLoaded=false;await init()}}catch(e){}},600000);
+setInterval(async()=>{try{const u=await fetchJSON('updated.json');if(u.t!==D.updT){oldLoaded=false;D.gaps=null;await init()}}catch(e){}},600000);
 </script>
 </body>
 </html>
