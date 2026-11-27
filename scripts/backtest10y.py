@@ -159,6 +159,11 @@ def main():
                    "rec_entry": round(float(e_px / high[s] * 100), 1), "above20": above20,
                    "days_from_low": entry - low_i, "mom12": mom, "vol60": vol,
                    "rel_drop": round(float(drop[s] - sec_med[meta[s]["s"]]), 1)}
+            fut = df[s].iloc[entry + 1:entry + 253].dropna()
+            hit = fut[fut >= high[s]]
+            row["full1y"] = entry + 252 <= last
+            row["hit1y"] = bool(len(hit))  # 1년 안에 악재 전 최고가 회복
+            row["hit_days"] = int(df.index.get_loc(hit.index[0]) - entry) if len(hit) else None
             for k, n in H.items():
                 t = entry + n
                 if t > last:
