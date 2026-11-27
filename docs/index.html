@@ -36,7 +36,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 .px{font-size:13px;color:var(--mute)}
 .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .b{font-size:12px;border-radius:8px;padding:3px 7px;background:#f0efe9}
-.b.ok{color:var(--ok);background:#e7f3ec}.b.bad{color:var(--bad);background:#f8e8e6}.b.unk{color:var(--unk);background:#f7f0dc}
+.b.ok{color:var(--ok);background:#e7f3ec}.b.bad{color:var(--bad);background:#f8e8e6}.b.unk{color:var(--unk);background:#f7f0dc}.b.warn{color:#8a6500;background:#fdf1c4}
 .secs{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .news{margin-top:10px;background:#f7f6f1;border-radius:10px;padding:10px 12px;font-size:13px}
 .news a{color:var(--acc);text-decoration:none;display:block;margin-top:5px}
@@ -74,6 +74,7 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
       </div>
       <label style="margin-top:12px;display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px">
         <input type="checkbox" id="unkPass" checked> 자료가 없는 조건은 통과로 처리 (노란색 ? 표시)</label>
+      <p class="note"><b style="color:#8a6500">△ 노란색</b>은 조건은 통과했지만 주가 상승에 도움이 되지 않는 요인입니다 (매출·영업이익 감소, EPS 전망 하향, 부채비율 100% 이상, 악재 뒤 추가 하락).</p>
       <p class="note">실적은 악재 날짜 <b>이전에 끝난 분기</b>만 사용합니다. 최근 분기는 악재 영향을 받았을 수 있기 때문입니다. EPS 전망은 이 사이트가 매일 기록을 쌓기 시작한 시점부터만 비교할 수 있어, 그보다 오래된 악재 날짜에서는 ? 로 표시됩니다.</p>
     </details>
     <button class="go" id="go">검색</button>
@@ -192,24 +193,25 @@ async function run(){
     if(r.rec>=maxRec)continue;
     const f=fundCheck(r.s,shock),e=estCheck(r.s,shock),fin=r.m.s==='금융'||r.m.s==='부동산';
     const tests=[];
-    const T=(on,name,val,pass,txt)=>{if(!on)return;tests.push({name,st:val==null?'unk':(pass?'ok':'bad'),txt:val==null?name+' 자료없음':txt})};
+    const T=(on,name,val,pass,txt,weak)=>{if(!on)return;tests.push({name,st:val==null?'unk':(!pass?'bad':(weak?'warn':'ok')),txt:val==null?name+' 자료없음':txt})};
     T(C('cSec'),'업종',secMed[r.m.s],secMed[r.m.s]<=-V('vSec'),`업종 동반 ${fmt(secMed[r.m.s],0)}`);
-    T(C('cRev'),'매출',f.rev,f.rev>=V('vRev'),`매출 ${f.rev!=null?fmt(f.rev):''}`);
-    T(C('cOp'),'영업이익',f.op,f.op>=V('vOp'),`영업이익 ${f.op==null?'':Math.abs(f.op)===999?(f.op>0?'적자축소':'적자확대'):fmt(f.op)}`);
-    T(C('cEst'),'EPS전망',e,e>=-V('vEst'),`EPS전망 ${e!=null?fmt(e):''}`);
-    if(C('cDe')&&!fin)T(true,'부채비율',f.de,f.de<=V('vDe'),`부채비율 ${f.de!=null?f.de.toFixed(0)+'%':''}`);
+    T(C('cRev'),'매출',f.rev,f.rev>=V('vRev'),`매출 ${f.rev!=null?fmt(f.rev):''}`,f.rev<=0);
+    T(C('cOp'),'영업이익',f.op,f.op>=V('vOp'),`영업이익 ${f.op==null?'':Math.abs(f.op)===999?(f.op>0?'적자축소':'적자확대'):fmt(f.op)}`,f.op<=0||Math.abs(f.op)===999);
+    T(C('cEst'),'EPS전망',e,e>=-V('vEst'),`EPS전망 ${e!=null?fmt(e):''}`,e<0);
+    if(C('cDe')&&!fin)T(true,'부채비율',f.de,f.de<=V('vDe'),`부채비율 ${f.de!=null?f.de.toFixed(0)+'%':''}`,f.de>=100);
     T(C('cNi'),'순이익',f.ni,f.ni>0,f.ni>0?'1년 흑자':'1년 적자');
-    if(r.now<r.low*0.9)tests.push({name:'추가하락',st:'unk',txt:`⚠ 2달 뒤에도 ${fmt(pct(r.now,r.low),0)} 추가 하락 — 다른 원인 확인`});
+    if(r.now<r.low*0.9)tests.push({name:'추가하락',st:'warn',txt:`2달 뒤에도 ${fmt(pct(r.now,r.low),0)} 추가 하락 — 다른 원인 확인`});
     if(tests.some(t=>t.st==='bad'||(t.st==='unk'&&!unkPass)))continue;
     res.push({...r,drop,tests,q:f.q,unk:tests.filter(t=>t.st==='unk').length});
   }
-  res.sort((a,b)=>a.unk-b.unk||b.up-a.up);
+  for(const r of res)r.warn=r.tests.filter(t=>t.st==='warn'||t.st==='unk').length;
+  res.sort((a,b)=>a.warn-b.warn||b.up-a.up);
   $('summary').innerHTML=`<b>${shock}</b> 악재 · 전후 2달 ${minDrop}% 이상 하락${minGap>0?` + 갭하락 ${minGap}%↑`:''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과 <b>${res.length}</b>종목 <span class="note">(회복 여력 큰 순)</span>`;
   $('list').innerHTML=res.length?res.map(r=>`
    <div class="card"><div class="top"><div><span class="tk"><a href="https://finance.yahoo.com/quote/${r.s.replace('.','-')}" target="_blank">${r.s}</a></span>
    <span class="nm"> ${r.m.n}</span></div><div style="text-align:right"><div class="up">회복 시 ${fmt(r.up,0)}</div><div class="drop">낙폭 ${fmt(r.drop)}</div></div></div>
    <div class="px">${r.m.s} · ${r.m.i}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)}) → 현재 $${r.now.toFixed(2)}${r.q?` · 실적 기준 분기 ${r.q.slice(0,7)}`:''}${r.gap?` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})`:''}</div>
-   <div class="badges">${r.tests.map(t=>`<span class="b ${t.st}">${t.st==='ok'?'✓':t.st==='bad'?'✗':'?'} ${t.txt}</span>`).join('')}</div></div>`).join('')
+   <div class="badges">${r.tests.map(t=>`<span class="b ${t.st}">${t.st==='ok'?'✓':t.st==='bad'?'✗':t.st==='warn'?'△':'?'} ${t.txt}</span>`).join('')}</div></div>`).join('')
    :'<div class="empty">조건을 모두 통과한 종목이 없습니다.<br>하락률이나 조건을 조금 낮춰 보세요.</div>';
 }
 $('go').onclick=run;

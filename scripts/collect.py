@@ -162,17 +162,45 @@ def google_news(q, d_from, d_to, lang="ko"):
 SECTOR_EN = {v: k for k, v in SECTOR_KO.items()}
 
 
-def translate_ko(text):
-    """영어 → 한국어 (구글 번역 공개 주소, 실패하면 빈 문자열)"""
+def _gtx(text):
     import urllib.parse
     url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q="
            + urllib.parse.quote(text))
+    data = json.loads(get(url, tries=4))
+    return "".join(seg[0] for seg in data[0] if seg and seg[0])
+
+
+def _mymemory(text):
+    import urllib.parse
+    url = ("https://api.mymemory.translated.net/get?langpair=en|ko&de=gohjunwon@gmail.com&q="
+           + urllib.parse.quote(text[:450]))
+    return json.loads(get(url)).get("responseData", {}).get("translatedText", "") or ""
+
+
+def translate_many(texts):
+    """영어 여러 줄 → 한국어 (한 번에 묶어 요청, 실패하면 다른 번역 사이트로)"""
+    texts = [t.replace("\n", " ") for t in texts]
+    if not texts:
+        return []
     try:
-        data = json.loads(get(url))
-        return "".join(seg[0] for seg in data[0] if seg and seg[0]).strip()
+        out = _gtx("\n".join(texts)).split("\n")
+        if len(out) == len(texts):
+            return [o.strip() for o in out]
     except Exception as e:
-        print("translate fail", e)
-        return ""
+        print("translate(google) fail", e)
+    res = []
+    for t in texts:
+        try:
+            res.append(_mymemory(t).strip())
+        except Exception as e:
+            print("translate(mymemory) fail", e)
+            res.append("")
+        time.sleep(1)
+    return res
+
+
+def translate_ko(text):
+    return (translate_many([text]) or [""])[0]
 
 
 def shock_news(e, n=5):
@@ -192,12 +220,16 @@ def shock_news(e, n=5):
             if key in seen or not any(k in it["t"].lower() for k in NEWS_KEYS):
                 continue
             seen.add(key)
-            it["k"] = translate_ko(it["t"])
-            time.sleep(0.3)
             out.append(it)
             if len(out) >= n:
-                return out
+                break
+        if len(out) >= n:
+            break
         time.sleep(1)
+    if out:
+        for it, k in zip(out, translate_many([it["t"] for it in out])):
+            it["k"] = k
+        return out
     if not out:  # 영어 뉴스가 없으면 한국어 뉴스로
         for it in google_news(f"{NEWS_TERM.get(first, '뉴욕증시')} 급락", d_from, d_to, "ko"):
             if any(k in it["t"].lower() for k in NEWS_KEYS):
@@ -277,15 +309,23 @@ def find_shocks(df, meta, keep=6):
         en = "Stock market" if gs[0] == "시장 전체" else SECTOR_EN.get(gs[0], gs[0])
         ko = []
         for g in gs[:2]:
-            if level(g) == 2 and g not in names:
-                names[g] = translate_ko(g) or g
+            if level(g) == 2 and names.get(g, g) == g:
+                k = translate_ko(g)
+                if k:
+                    names[g] = k
             ko.append(names.get(g, g))
         who = "시장 전체" if gs[0] == "시장 전체" else "·".join(ko) + (" 등" if len(gs) > 2 else "")
         out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"]})
     save("ko_names.json", names)
     cached = {x["d"]: x.get("news") for x in load("shocks.json", []) if x.get("news")}
-    for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음
-        e["news"] = cached.get(e["d"]) or shock_news(e)
+    for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음 (번역만 빠진 것은 다시 번역)
+        news = cached.get(e["d"]) or shock_news(e)
+        miss = [it for it in news if not it.get("k")]
+        if miss:
+            for it, k in zip(miss, translate_many([it["t"] for it in miss])):
+                it["k"] = k
+        e["news"] = news
+        time.sleep(2)
     save("shocks.json", list(reversed(out)))
     print("shocks:", out)
 
@@ -366,6 +406,10 @@ def fundamentals(meta):
         ends = [e for e in ends if e >= "2017-01-01"]
         liab = instant_series(facts, "Liabilities")
         eq = instant_series(facts, "StockholdersEquity")
+        tot = instant_series(facts, "LiabilitiesAndStockholdersEquity")
+        for d, v in tot.items():  # 부채 합계를 따로 공시하지 않는 회사: 부채 = 총자산 - 자본
+            if d not in liab and d in eq:
+                liab[d] = v - eq[d]
         bal = sorted(e for e in set(liab) & set(eq) if e >= "2017-01-01")
         fund[sym] = {
             "q": [[e, rev.get(e), op.get(e), ni.get(e)] for e in ends],
