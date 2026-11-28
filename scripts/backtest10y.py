@@ -87,8 +87,8 @@ def pit_members():
 
 
 def is_member(iv, through, meta, s, d):
-    if d > through:  # 기록 이후 날짜는 현재 명단으로
-        return s in meta and (not meta[s].get("a") or meta[s]["a"] <= d)
+    if d > through:  # 기록 이후 날짜는 현재 명단으로 (이미 빠진 과거 종목은 제외)
+        return s in meta and not meta[s].get("removed") and (not meta[s].get("a") or meta[s]["a"] <= d)
     return any(a <= d and (b is None or d < b) for a, b in iv.get(s, []))
 
 

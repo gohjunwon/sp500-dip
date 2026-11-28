@@ -18,7 +18,7 @@
 ## 구성
 - `scripts/collect.py` 데이터 수집 (Yahoo Finance 주가·전망, SEC 공시 실적)
 - `docs/index.html` 검색 화면 (GitHub Pages)
-- `.github/workflows/update.yml` 30분마다 현재가·뉴스(Cloudflare 알람, live), 뉴욕 8:00~8:45 개장 전 갱신(preopen: 현재가+일봉·악재), 장 마감 후 전체(full). 바뀐 자료가 없으면 커밋하지 않음
+- `.github/workflows/update.yml` 30분마다 현재가·뉴스(Cloudflare 알람, live), 뉴욕 8:00~9:30 개장 전 갱신(GitHub 지연 허용)(preopen: 현재가+일봉·악재), 장 마감 후 전체(full). 바뀐 자료가 없으면 커밋하지 않음
 - `.github/workflows/backtest.yml` 백테스트 스크립트가 바뀌면 자동으로 10년 백테스트 재계산
 
 ## GitHub에 올리는 방법

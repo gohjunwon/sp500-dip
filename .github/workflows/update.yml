@@ -3,7 +3,7 @@ on:
   schedule:
     # 30분마다 현재가·뉴스 갱신은 Cloudflare 알람이 보냅니다(mode=live).
     - cron: "17 22 * * 1-5"        # 장 마감 후(한국 오전 7:17): 전체(실적·전망 포함)
-    # 미국장 시작 1시간 전(뉴욕 8:30) 보장 갱신: 서머타임/겨울 두 줄, 뉴욕 8:00~8:45일 때만 실제로 돎
+    # 미국장 시작 1시간 전(뉴욕 8:30) 보장 갱신: 서머타임/겨울 두 줄, 뉴욕 8:00~9:30일 때만 실제로 돎(GitHub 지연 허용)
     - cron: "5 12 * * 1-5"         # 서머타임(EDT) 뉴욕 8:05 (GitHub 지연 대비 한 번 더)
     - cron: "20 12 * * 1-5"        # 서머타임(EDT) 뉴욕 8:20
     - cron: "5 13 * * 1-5"         # 겨울(EST) 뉴욕 8:05
@@ -35,7 +35,7 @@ jobs:
           case "$SCHED" in "5 12 * * 1-5"|"20 12 * * 1-5"|"5 13 * * 1-5"|"20 13 * * 1-5") PRE=1;; *) PRE=0;; esac
           if [ "$PRE" = 1 ]; then
             HM=$((10#$(TZ=America/New_York date +%H%M)))
-            if [ "$HM" -lt 800 ] || [ "$HM" -gt 845 ]; then echo "뉴욕 $HM — 개장 1시간 전 시간대가 아니라 건너뜀"; exit 0; fi
+            if [ "$HM" -lt 800 ] || [ "$HM" -gt 930 ]; then echo "뉴욕 $HM — 개장 1시간 전 시간대가 아니라 건너뜀"; exit 0; fi
             MODE=preopen
           fi
           if [ "$MODE" = "preopen" ]; then

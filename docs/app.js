@@ -25,7 +25,7 @@ async function init() {
     try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${o.value === '3' ? ', 추천' : ''}${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
     D.risk = D.risk || {}; D.liq = D.liq || {};
     showHealth(upd); showSurv(); showMonthly();
-    opt('desc.json').then(d => { D.desc = d; run() });
+    opt('desc.json').then(d => { D.desc = d; return run() }).catch(e => console.log(e));
     run();
   } catch (e) { console.log(e); $('upd').textContent = '데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)'; }
 }
@@ -115,7 +115,7 @@ function screen(shock, ai, bt, shockDD) {
     for (let i = a; i <= i0; i++) if (p[i] != null && p[i] > high) { high = p[i]; hi = i }
     for (let i = i0 + 1; i <= b; i++) if (p[i] != null && p[i] < low) { low = p[i]; li = i }
     let now = priceAt(p, ai), liveQ = null;
-    if (!bt && ai === D.dates.length - 1 && D.live && D.live.q[s]) { liveQ = D.live.q[s]; now = liveQ[0] } // 프리·장중·애프터마켓 현재가
+    if (!bt && ai === D.dates.length - 1 && D.live && D.live.q && D.live.q[s]) { liveQ = D.live.q[s]; now = liveQ[0] } // 프리·장중·애프터마켓 현재가
     if (hi < 0 || li < 0 || now == null) continue;
     const r = { s, m: D.meta[s], pre: high, low, now, liveQ, close: priceAt(p, ai), hi, li, hd: dates[hi], ld: dates[li], dLow: pct(low, high), up: pct(high, now), rec: now / high * 100 };
     (secDrops[r.m.s] = secDrops[r.m.s] || []).push(r.dLow); rows.push(r);

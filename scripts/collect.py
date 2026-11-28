@@ -255,7 +255,12 @@ def _mymemory(text):
     import urllib.parse
     url = ("https://api.mymemory.translated.net/get?langpair=en|ko&de=gohjunwon@gmail.com&q="
            + urllib.parse.quote(text[:450]))
-    return json.loads(get(url)).get("responseData", {}).get("translatedText", "") or ""
+    j = json.loads(get(url))
+    txt = (j.get("responseData") or {}).get("translatedText", "") or ""
+    # 하루 한도 초과 등은 오류 문장을 '번역'으로 돌려주므로 실패로 처리 → 화면에는 영어 원문
+    if str(j.get("responseStatus")) != "200" or "MYMEMORY" in txt.upper() or "QUERY LENGTH LIMIT" in txt.upper():
+        raise RuntimeError(f"mymemory {j.get('responseStatus')}: {txt[:80]}")
+    return txt
 
 
 def translate_many(texts):
