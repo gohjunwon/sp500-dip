@@ -24,7 +24,7 @@ for _, r in x.iterrows():
         p0, p1 = s.iloc[e], s.iloc[:t + 1].dropna().iloc[-1]
         m[k] = (p1 / p0 - 1) * 100
         m["sp%d" % k] = (df.SPY.iloc[t] / df.SPY.iloc[e] - 1) * 100
-    rows.append(dict(s=r.s, shock=r.shock, score=int(r.score), covid=bool(r.covid), y1=r["1y"], **m))
+    rows.append({"s": r.s, "shock": r.shock, "score": int(r.score), "covid": bool(r.covid), "y1": r["1y"], **m})
 out = pd.DataFrame(rows)
 res = {}
 for name, g0 in [("excovid", out[~out.covid]), ("all", out)]:
