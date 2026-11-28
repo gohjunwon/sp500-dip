@@ -22,7 +22,7 @@ async function init() {
     $('upd').textContent = '갱신 ' + new Date(upd.t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const opt = f => fetchJSON(f).catch(() => null);
     [D.risk, D.liq, D.macro, D.live, D.model, D.div] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json'), opt('model.json'), opt('div.json')]);
-    try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
+    try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${o.value === '3' ? ', 추천' : ''}${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
     D.risk = D.risk || {}; D.liq = D.liq || {};
     showHealth(upd); showSurv();
     opt('desc.json').then(d => { D.desc = d; run() });
@@ -290,7 +290,7 @@ function showHealth(upd) {
 function showSurv() {
   const el = $('survNote'); if (!el) return; const sv = D.model && D.model.surv;
   el.innerHTML = sv && sv.pit
-    ? `확률은 <b>그 당시 S&P 500 구성종목</b> 기준입니다(나중에 빠진 종목 포함). 과거 구성종목 ${sv.members}개 중 지금은 빠진 ${sv.removed}개가 있고, 그중 <b>${sv.no_price}개는 상장폐지 등으로 주가 자료가 없어</b> 계산에서 빠졌습니다. 이 때문에 확률이 실제보다 조금 높게 나올 수 있습니다.${D.model.unk_excluded ? ' 자료가 없는 종목은 확률 계산에서도 뺐습니다.' : ''}`
+    ? `확률은 <b>그 당시 S&P 500 구성종목</b> 기준입니다(나중에 빠진 종목 포함). 과거 구성종목 ${sv.members}개 중 지금은 빠진 ${sv.removed}개가 있고, 그중 <b>${sv.no_price}개는 상장폐지 등으로 주가 자료가 없어</b> 계산에서 빠졌습니다. 이 때문에 확률이 실제보다 조금 높게 나올 수 있습니다.`
     : '⚠️ 확률은 <b>지금 S&P 500에 있는 종목만</b>으로 계산한 값입니다. 그동안 지수에서 빠지거나 상장폐지된 회사가 빠져 있어 실제보다 높게 나올 수 있습니다(구성종목 기록으로 다시 계산 중).';
 }
 

@@ -250,8 +250,6 @@ def build_model(picks, min_n=20, surv=None):
     import pandas as pd
     x = pd.DataFrame(picks)
     x = x[x["full1y"]].copy()
-    if "unk" in x:  # 사이트 기본값('자료 없음 통과' 꺼짐)과 같게: 자료가 없는 종목은 뺀다
-        x = x[~x["unk"].fillna(False).astype(bool)].copy()
     sd = pd.to_datetime(x["shock"])
     cov = (sd + pd.DateOffset(months=14) >= "2020-02-01") & (sd <= "2020-12-31")
     n_all, n_cov = len(x), int(cov.sum())
@@ -299,7 +297,7 @@ def build_model(picks, min_n=20, surv=None):
                           "years": f"{yrs[0]}~{yrs[-1]}", "base": round(float(x.hit.mean()), 3),
                           "desc": "코로나 기간 제외, 악재 2달 뒤 후보가 1년 안에 악재 전 최고가를 회복한 실제 비율",
                           "surv": {k: v for k, v in (surv or {}).items() if k in ("pit", "members", "removed", "removed_with_price", "no_price", "picks_removed")},
-                          "unk_excluded": True})
+                          "unk_excluded": False})  # 사이트 기본값('자료 없음 통과' 켜짐)과 같음
 
 
 if __name__ == "__main__":
