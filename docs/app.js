@@ -199,8 +199,10 @@ function showNews(shock) {
   const x = findShock(shock); const box = $('newsBox');
   if (!x) { box.style.display = 'none'; return }
   box.style.display = '';
-  box.innerHTML = `<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}%${x.guess ? ' · 원인은 뉴스 제목으로 자동 추정' : ''} · 그 무렵 해외 뉴스 (한국어 번역)</small>` +
-    ((x.news || []).length ? x.news.map(n => `<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.k || n.t)}${n.k && n.k !== n.t ? `<br><small>${esc(n.t)}</small>` : ''} <small>· ${esc(n.s)} ${esc(n.d)}</small></a>`).join('') : '<div class="note" style="margin-top:5px">관련 뉴스를 찾지 못했습니다</div>');
+  const hit = (x.hit || []).slice(0, 6).map(a => `${esc(a.n)}(${esc(a.s)}) ${a.r}%`).join(', ');
+  box.innerHTML = `<b>${esc(x.name)}</b> <small>· ${esc(x.who)} 최대 ${x.dd}%${x.guess ? ' · 원인은 함께 빠진 업종 관련 뉴스로 자동 추정' : ''} · 시작일 ±5일 해외 뉴스 (한국어 번역)</small>` +
+    (hit ? `<div class="note" style="margin-top:3px">함께 크게 빠진 종목: ${hit}</div>` : '') +
+    ((x.news || []).length ? x.news.map(n => `<a href="${esc(n.u)}" target="_blank" rel="noopener">${esc(n.k || n.t)}${n.k && n.k !== n.t ? `<br><small>${esc(n.t)}</small>` : ''} <small>· ${esc(n.s)} ${esc(n.d)}</small></a>`).join('') : '<div class="note" style="margin-top:5px"><b>원인 뉴스 확인 안 됨</b> — 그 무렵 함께 빠진 업종·종목과 관련된 기사를 찾지 못했습니다 (관련 없는 기사는 보여 주지 않습니다)</div>');
 }
 function showResolve(shock, i0) {
   const box = $('resolve'); const ai = D.dates.length - 1; const b = Math.min(idxOn(addDays(shock, 60)), ai);

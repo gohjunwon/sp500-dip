@@ -291,39 +291,180 @@ def translate_ko(text):
     return (translate_many([text]) or [""])[0]
 
 
+# 업종 이름 → 뉴스 제목에서 찾을 영어 단어 (원인 뉴스가 그 업종 이야기인지 확인용)
+GROUP_WORDS = {
+    "Information Technology": ["tech", "technology", "software", "chip", "semiconductor"],
+    "Health Care": ["health", "healthcare", "drug", "pharma", "biotech", "medical", "insurer"],
+    "Financials": ["bank", "banks", "lender", "financial", "insurer", "credit card", "card issuer", "brokerage", "asset manager"],
+    "Consumer Discretionary": ["retail", "retailer", "consumer", "automaker", "travel", "restaurant"],
+    "Communication Services": ["media", "telecom", "streaming", "advertising", "social media"],
+    "Industrials": ["industrial", "airline", "defense", "aerospace", "transport", "freight"],
+    "Consumer Staples": ["consumer staples", "grocer", "food", "beverage", "tobacco"],
+    "Energy": ["oil", "energy", "crude", "gas", "drilling"],
+    "Utilities": ["utility", "utilities", "power", "electric"],
+    "Real Estate": ["reit", "real estate", "property", "landlord"],
+    "Materials": ["chemical", "miner", "mining", "steel", "metals", "gold", "copper"],
+    "Transaction & Payment Processing Services": ["payment", "payments", "fintech", "credit card", "card", "swipe fee", "interchange"],
+    "Consumer Finance": ["credit card", "card", "lender", "consumer finance"],
+    "IT Consulting & Other Services": ["it services", "consulting", "consultancy", "outsourcing", "tech services"],
+    "Application Software": ["software", "saas", "cloud"],
+    "Systems Software": ["software", "cloud", "cybersecurity"],
+    "Managed Health Care": ["health insurer", "insurer", "insurers", "managed care", "medicare", "medicaid", "health plan"],
+    "Semiconductors": ["chip", "chips", "chipmaker", "semiconductor", "memory", "ai chip"],
+    "Semiconductor Materials & Equipment": ["chip", "chips", "chipmaker", "semiconductor", "memory", "chip equipment", "chip gear"],
+    "Construction & Engineering": ["construction", "engineering", "data center", "infrastructure", "ai infrastructure"],
+    "Electrical Components & Equipment": ["electrical", "power equipment", "data center", "grid"],
+}
+GROUP_QUERY = {  # 검색어로 쓸 짧은 이름 (없으면 업종 이름을 줄여서 사용)
+    "Transaction & Payment Processing Services": "payment", "IT Consulting & Other Services": "IT services",
+    "Managed Health Care": "health insurer", "Semiconductor Materials & Equipment": "chip equipment",
+    "Semiconductors": "chip", "Application Software": "software", "Consumer Finance": "credit card",
+    "Information Technology": "tech", "Health Care": "healthcare", "Financials": "bank",
+}
+MARKET_WORDS = ["stock market", "stocks", "wall street", "s&p 500", "s&p", "nasdaq", "dow", "markets", "equities"]
+FALL_WORDS = ["slump", "tumble", "sink", "sank", "drop", "rout", "crash", "selloff", "sell-off", "plunge", "fall",
+              "fell", "slide", "slid", "hit", "dip", "sell", "slam", "pressure", "worr", "fear", "concern", "threat",
+              "losses", "lower", "skid", "correction", "rattle", "jolt", "shock", "down"]
+# 원인 설명이 아닌 투자 조언·전망·회고 글
+ADVICE_WORDS = ["where to invest", "history says", "smartest move", "outlook", "how to ", "should you", "best stocks",
+                "here's what", "here’s what", "what happened after", "could win", "buying opportunity", "to buy",
+                "what investors should", "investors should do", "protect their money", "spin-off", "spinoff"]
+NEWS_THR = 3          # 이 점수보다 낮으면 '원인 뉴스 확인 안 됨'
+NEWS_DAYS = 5         # 악재 시작일 ±5일 안의 기사만
+NEWS_VER = 2          # 뉴스 고르는 방식이 바뀌면 올림 → 예전에 받아 둔 뉴스 다시 받기
+STOP = {"services", "other", "and", "&", "equipment", "products", "management", "development", "integrated",
+        "diversified", "specialized", "processing", "transaction", "components"}
+
+
+def _gwords(g):
+    import re
+    en = SECTOR_EN.get(g, g)
+    ws = list(GROUP_WORDS.get(en, []))
+    for w in re.findall(r"[A-Za-z]+", en):  # 업종 이름 자체의 단어 (예: Biotechnology, Airlines)
+        w = w.lower()
+        if len(w) >= 5 and w not in STOP and w not in ws:
+            ws.append(w.rstrip("s") if w.endswith("s") and not w.endswith("ss") else w)
+    return ws
+
+
+def _has(text, w):
+    import re
+    return re.search(r"(?<![a-z])" + re.escape(w), text) is not None
+
+
+def _news_date(it):
+    try:
+        return datetime.strptime(it.get("d", "").strip(), "%d %b %Y").date()
+    except Exception:
+        return None
+
+
+def affected(df, meta, groups, gk, d, t, top=20):
+    """그 악재 때 함께 빠진 종목 (악재 전날 대비 바닥까지 하락률이 큰 순)"""
+    import pandas as pd
+    d0, t0 = pd.Timestamp(d), min(pd.Timestamp(t), pd.Timestamp(d) + pd.Timedelta(days=30))
+    pre = df[df.index < d0]
+    if pre.empty:
+        return []
+    base, low = pre.iloc[-1], df[(df.index >= d0) & (df.index <= t0)].min()
+    first = df[df.index >= d0].iloc[:3].min()  # 시작 사흘 동안의 하락 (누가 먼저 빠졌는지)
+    syms = set()
+    for g in gk:
+        syms |= set(groups.get(g, []))
+    res = []
+    for s in syms:
+        if s in base.index and base[s] and base[s] == base[s] and low[s] == low[s]:
+            r = float(low[s] / base[s] - 1)
+            if r <= -0.08:
+                g = next((g for g in gk if s in groups.get(g, [])), "")
+                res.append({"s": s, "n": _short_name(meta[s]["n"]), "g": g, "r": round(r * 100, 1),
+                            "r3": round(float(first[s] / base[s] - 1) * 100, 1)})
+    res.sort(key=lambda x: x["r"])
+    return res[:top]
+
+
+def score_news(it, e):
+    """뉴스 제목이 이 악재의 원인 설명과 얼마나 관련 있는지 점수 (낮으면 버림)"""
+    t = " " + it.get("t", "").lower() + " "
+    raw = it.get("t", "")
+    nd, d = _news_date(it), date.fromisoformat(e["d"])
+    if nd and abs((nd - d).days) > NEWS_DAYS:
+        return -9
+    market = e["gk"][0] == "시장 전체"
+    grp = {w for g in e["gk"] for w in _gwords(g) if _has(t, w)}
+    import re
+    cos = [a for a in e.get("hit", []) if len(a["n"]) >= 3 and
+           re.search(r"(?<![A-Za-z])" + re.escape(a["n"].split()[0] if len(a["n"].split()[0]) >= 4 else a["n"]) + r"(?![a-z])", raw)]
+    drv = e.get("drv")
+    if market:
+        rel = (2 if any(_has(t, w) for w in MARKET_WORDS) else 0) + (2 if len(cos) >= 2 else 0)
+    else:
+        rel = 2 * min(len(grp), 2)
+        if len(cos) >= 2:
+            rel += 2 + min(len(cos) - 2, 2)
+        elif cos and (cos[0]["s"] == drv or grp):  # 한 회사만 나온 기사는 그 회사가 주도주이거나 업종 이야기일 때만
+            rel += 1 if grp else 2
+        if not grp and len(cos) < 2 and not (cos and cos[0]["s"] == drv):
+            return 0
+    if rel == 0:
+        return 0
+    sc = rel
+    fall = any(_has(t, w) for w in FALL_WORDS)
+    if fall:
+        sc += 1
+    elif any(_has(t, w) for w in ("rebound", "rally", "rallies", "soar", "surge", "record high", "gain")):
+        sc -= 2  # 반등 기사는 원인 설명이 아님
+    if any(k in t for keys, _ in CAUSES for k in keys):
+        sc += 1
+    if any(w in t for w in ADVICE_WORDS):
+        sc -= 3
+    return sc
+
+
 def shock_news(e, n=5):
-    """악재 날짜 앞뒤 영어 뉴스 제목을 받아 한국어 번역과 함께 붙이기"""
+    """악재 시작일 ±5일 영어 뉴스 중 함께 빠진 업종·종목과 관련 있는 원인 기사만 골라 번역"""
     d = date.fromisoformat(e["d"])
-    d_from, d_to = (d - timedelta(days=3)).isoformat(), (d + timedelta(days=7)).isoformat()
-    first = e["who"].split("·")[0].replace(" 등", "")
-    en = e.get("en", "Stock market")
-    if en == "Stock market":
+    d_from, d_to = (d - timedelta(days=NEWS_DAYS + 1)).isoformat(), (d + timedelta(days=NEWS_DAYS + 1)).isoformat()
+    market = e["gk"][0] == "시장 전체"
+    if market:
         queries = ["stock market sell-off", "stocks plunge Wall Street", "S&P 500 falls why"]
     else:
-        queries = [f"{en} stocks plunge", f"{en} stocks sell-off", "stock market sell-off"]
+        queries = []
+        for g in e["gk"][:2]:
+            en = SECTOR_EN.get(g, g)
+            k = GROUP_QUERY.get(en) or " ".join(w for w in en.split() if w.lower() not in STOP and w != "&")
+            queries += [f"{k} stocks fall", f"{k} stocks sell-off why"]
+        main = [a["n"] for a in e.get("hit", []) if a.get("g") == e["gk"][0]][:3]  # 주된 업종에서 함께 빠진 종목
+        names = [a["n"] for a in e.get("hit", [])[:3]]
+        for i, ns in enumerate(x for x in (main, names) if x):
+            q = " ".join(ns) + " shares fall"
+            if q not in queries:
+                queries.insert(1 + i * 2, q)
     if e.get("q"):
         queries = [e["q"]] + queries
-    out, seen = [], set()
+    cand, seen = [], set()
     for q in queries:
         for it in google_news(q, d_from, d_to, "en"):
             key = it["t"][:30].lower()
-            if key in seen or not any(k in it["t"].lower() for k in NEWS_KEYS):
+            if key in seen:
                 continue
             seen.add(key)
-            out.append(it)
-            if len(out) >= n:
-                break
-        if len(out) >= n:
-            break
+            it["sc"] = score_news(it, e)
+            if it["sc"] >= NEWS_THR:
+                cand.append(it)
         time.sleep(1)
+    cand.sort(key=lambda it: -it["sc"])
+    out = cand[:n]
     if out:
         for it, k in zip(out, translate_many([it["t"] for it in out])):
             it["k"] = k
         return out
-    if not out:  # 영어 뉴스가 없으면 한국어 뉴스로
-        for it in google_news(f"{NEWS_TERM.get(first, '뉴욕증시')} 급락", d_from, d_to, "ko"):
-            if any(k in it["t"].lower() for k in NEWS_KEYS):
-                it["k"] = it["t"]
+    if market:  # 시장 전체 악재인데 영어 뉴스가 없으면 한국어 뉴스로
+        for it in google_news("뉴욕증시 급락", d_from, d_to, "ko"):
+            nd = _news_date(it)
+            if (not nd or abs((nd - d).days) <= NEWS_DAYS) and any(k in it["t"] for k in ("뉴욕증시", "미 증시", "미국 증시")) \
+                    and any(k in it["t"] for k in ("급락", "폭락", "하락", "추락")):
+                it["k"], it["sc"] = it["t"], NEWS_THR
                 out.append(it)
                 if len(out) >= n:
                     break
@@ -405,6 +546,8 @@ def hist_shocks(df, meta, rets, market, groups, names):
 
 # 뉴스 제목에 많이 나온 단어로 악재 원인 추정 (영어 → 한국어)
 CAUSES = [
+    (("rate cap", "interest cap", "cap on credit", "credit card cap", "credit-card cap", "card rate", "card interest",
+      "swipe fee", "interchange"), "카드 금리 상한·규제"),
     (("tariff", "trade war", "trade deal", "trade tension"), "관세·무역분쟁"),
     (("iran", "hormuz", "israel", "missile", "war ", "invasion", "ukraine", "russia"), "전쟁·지정학"),
     (("oil", "crude", "opec"), "유가"),
@@ -414,7 +557,7 @@ CAUSES = [
     ((" ai ", "ai-", "ai spending", "artificial intelligence"), "AI 우려"),
     (("chip", "semiconductor", "nvidia"), "반도체"),
     (("export control", "export curb", "export ban", "china"), "중국·수출규제"),
-    (("bank", "lender", "credit"), "은행·신용"),
+    (("bank", "lender", "credit crunch", "credit market", "private credit", "credit risk"), "은행·신용"),
     (("virus", "covid", "pandemic", "outbreak"), "전염병"),
     (("recession", "slowdown", "jobs report", "unemployment"), "경기침체 우려"),
     (("medicare", "medicaid", "drug pric", "health insur"), "의료 정책"),
@@ -427,8 +570,10 @@ CAUSES = [
 def guess_cause(news):
     text = " " + " ".join(n.get("t", "") for n in news).lower() + " "
     score = []
-    for keys, label in CAUSES:
+    for keys, label in CAUSES:  # 앞 항목에서 쓴 단어는 지워서 두 번 세지 않음 (예: credit card interest rate cap)
         c = sum(text.count(k) for k in keys)
+        for k in keys:
+            text = text.replace(k, " ")
         if c:
             score.append((c, label))
     score.sort(reverse=True)
@@ -474,26 +619,34 @@ def find_shocks(df, meta, keep=6):
                     names[g] = k
             ko.append(names.get(g, g))
         who = "시장 전체" if gs[0] == "시장 전체" else "·".join(ko) + (" 등" if len(gs) > 2 else "")
+        hit = affected(df, meta, groups if gs[0] != "시장 전체" else market, gs[:3], m["d"], m["t"])
+        drv = min(hit, key=lambda a: a["r3"])["s"] if hit else None  # 시작 사흘 동안 가장 크게 빠진 종목 = 주도주
         out.append({"d": m["d"], "name": name or f"{who} 급락", "who": who, "en": en, "dd": m["dd"],
-                    "q": kn[2] if kn else "", "gk": gs[:3]})
+                    "q": kn[2] if kn else "", "gk": gs[:3], "t": m["t"], "drv": drv,
+                    "hit": [{"s": a["s"], "n": a["n"], "g": a["g"], "r": a["r"], "r3": a["r3"]} for a in hit[:12]]})
     save("ko_names.json", names)
     try:
         hist_shocks(df, meta, rets, market, groups, names)
     except Exception as e:
         print("hist fail", e)
-    cached = {(x["d"], x.get("q", "")): x.get("news") for x in load("shocks.json", []) if x.get("news")}
-    for e in out:  # 이미 받아 둔 뉴스는 다시 받지 않음 (번역만 빠진 것은 다시 번역)
-        news = cached.get((e["d"], e["q"])) or shock_news(e)
+    # 이미 받아 둔 뉴스는 다시 받지 않음 (뉴스 고르는 방식이 바뀌었거나 그때 원인 뉴스를 못 찾았으면 다시 받기)
+    cached = {(x["d"], x.get("q", "")): x for x in load("shocks.json", [])
+              if x.get("nv") == NEWS_VER and x.get("news")}
+    for e in out:
+        old = cached.get((e["d"], e["q"]))
+        news = old["news"] if old else shock_news(e)
         miss = [it for it in news if not it.get("k")]
         if miss:
             for it, k in zip(miss, translate_many([it["t"] for it in miss])):
                 it["k"] = k
-        e["news"] = news
+        e["news"], e["nv"] = news, NEWS_VER
+        e["nc"] = not news  # 원인 뉴스 확인 안 됨
         cause = guess_cause(news)
-        if cause and e["name"].endswith("급락"):  # 이름 없는 악재는 뉴스로 원인 추정해 붙이기
+        if cause and e["name"].endswith("급락"):  # 이름 없는 악재는 관련 뉴스로 원인 추정해 붙이기
             e["name"] = f'{"·".join(cause)} ({e["who"]})'
             e["guess"] = True
-        time.sleep(2)
+        if not old:
+            time.sleep(2)
     save("shocks.json", list(reversed(out)))
     print("shocks:", out)
 
