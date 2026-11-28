@@ -80,13 +80,14 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
     <div style="margin-top:12px">
       <label for="vScore">회복 가능성 점수 — 몇 점 이상만 볼까요?</label>
       <select id="vScore">
-        <option value="0">0점 이상 (전체 보기)</option>
+        <option value="0" selected>0점 이상 (전체 보기, 기본)</option>
         <option value="1">1점 이상 (코로나 제외 293건: 1년 뒤 상승 66%, 최고가 회복 46%)</option>
         <option value="2">2점 이상 (코로나 제외 246건: 1년 뒤 상승 69%, 최고가 회복 50%)</option>
-        <option value="3" selected>3점 이상 (코로나 제외 128건: 1년 뒤 상승 72%, 최고가 회복 52%, 추천)</option>
+        <option value="3">3점 이상 (코로나 제외 128건: 1년 뒤 상승 72%, 최고가 회복 52%)</option>
         <option value="4">4점만 (코로나 제외 15건: 1년 뒤 상승 87%, 최고가 회복 60%, 표본 적음)</option>
       </select>
-      <p class="note" style="margin:6px 2px 0">점수는 4가지 중 맞춘 개수입니다: ① 악재 전 1년 주가 상승 ② 부채비율 100% 이하 ③ 평소 주가 변동이 작음(연 30% 이하) ④ 업종·시장이 20% 넘게 빠진 큰 악재. 점수를 높이면 확률은 조금 오르지만 종목 수가 줄고, 크게 오르는 종목을 놓칠 수 있습니다. 결과는 <b>1년 내 회복 확률</b>(2016~2025년 악재 중 <b>코로나 기간을 뺀</b> 자료에서, 점수·현재 회복 정도가 비슷했던 종목이 1년 안에 악재 전 최고가를 실제로 되찾은 비율)이 높은 순서로 나옵니다. 2020년 코로나 때는 거의 모든 종목이 반등해 확률이 부풀려지므로 뺐습니다(보유 기간이 2020년 2~12월과 겹치는 233건 제외, 298건 사용). 비슷한 종목이 20건 미만이면 같은 점수 전체의 비율을 씁니다. 과거 확률일 뿐 미래를 보장하지 않습니다.</p>
+      <p class="note" style="margin:6px 2px 0">점수는 4가지 중 맞춘 개수입니다: ① 악재 전 1년 주가 상승 ② 부채비율 100% 이하 ③ 평소 주가 변동이 작음(연 30% 이하) ④ 업종·시장이 20% 넘게 빠진 큰 악재. 점수를 높이면 확률은 조금 오르지만 종목 수가 줄고, 크게 오르는 종목을 놓칠 수 있습니다. 결과는 <b>1년 내 회복 확률</b>(2016~2025년 악재 중 <b>코로나 기간을 뺀</b> 자료에서, 점수·현재 회복 정도가 비슷했던 종목이 1년 안에 악재 전 최고가를 실제로 되찾은 비율)이 높은 순서로 나옵니다. 2020년 코로나 때는 거의 모든 종목이 반등해 확률이 부풀려지므로 뺐습니다(보유 기간이 2020년 2~12월과 겹치는 233건 제외, 298건 사용). 비슷한 종목이 20건 미만이면 같은 점수 전체의 비율을 씁니다. 과거 확률일 뿐 미래를 보장하지 않습니다. 점수는 기본으로 거르지 않고 <b>참고 표시</b>만 합니다(원하면 위에서 고르세요).</p>
+      <p class="note" id="survNote" style="margin:6px 2px 0"></p>
     </div>
     <details style="margin-top:14px">
       <summary>가치 유지 조건 설정</summary>
@@ -109,24 +110,25 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
         <input type="checkbox" id="cEarn"><span>2주 안에 실적 발표가 있는 종목 제외</span><span></span>
       </div>
       <label style="margin-top:12px;display:flex;gap:8px;align-items:center;color:var(--ink);font-size:14px">
-        <input type="checkbox" id="unkPass" checked> 자료가 없는 조건은 통과로 처리 (노란색 ? 표시)</label>
+        <input type="checkbox" id="unkPass"> 자료가 없는 조건은 통과로 처리 (노란색 ? 표시 · 기본은 꺼짐: 확인 못 한 종목은 뺌)</label>
       <p class="note"><b style="color:#8a6500">△ 노란색</b>은 조건은 통과했지만 주가 상승에 도움이 되지 않는 요인입니다 (매출·영업이익 감소, EPS 전망 하향, 부채비율 100% 이상, 악재 뒤 추가 하락).</p>
       <p class="note">실적은 악재 날짜 <b>이전에 끝난 분기</b>만 사용합니다. 최근 분기는 악재 영향을 받았을 수 있기 때문입니다. EPS 전망은 이 사이트가 매일 기록을 쌓기 시작한 시점부터만 비교할 수 있어, 그보다 오래된 악재 날짜에서는 ? 로 표시됩니다.</p>
     </details>
     <button class="go" id="go">검색</button>
   </div>
   <div id="secBox" class="panel" style="display:none"><div style="font-size:13px;font-weight:600">업종별 최대 낙폭 (중간값)</div><div class="secs" id="secs"></div></div>
+  <div id="health" class="panel" style="display:none;background:#fdf1c4;color:#6b4e00;font-size:13px"></div>
   <div class="summary" id="summary"></div>
   <div id="mix" class="note" style="margin:0 4px 8px"></div>
   <div id="list"></div>
   <div class="panel" id="btPanel">
     <div style="font-weight:600">과거 악재로 이 조건 검증하기 (백테스트)</div>
-    <p class="note">2019년 9월 이후의 큰 악재마다, 악재 2달 뒤 지금과 같은 조건으로 골랐다면 3개월·6개월·1년 뒤 수익률이 어땠는지 계산합니다. 그 당시 S&P 500에 있던 종목만 계산합니다(나중에 편입된 종목 제외). 다만 그 뒤 지수에서 빠지거나 상장폐지된 회사는 주가 자료가 없어 빠지므로, 여전히 실제보다 조금 좋게 나올 수 있습니다. 종목 수가 많은 악재(2020년 코로나 등)가 전체 평균을 끌어올리므로 <b>S&P 500을 이긴 악재 횟수</b>와 <b>악재별 중간값</b>을 함께 보세요. EPS 전망·투자의견·공매도 등 과거 기록이 없는 항목은 빼고 계산합니다.</p>
+    <p class="note">2019년 9월 이후의 큰 악재마다, 악재 2달 뒤 지금과 같은 조건으로 골랐다면 3개월·6개월·1년 뒤 수익률이 어땠는지 계산합니다. 이 화면 계산은 <b>지금 S&P 500 종목</b>의 주가만으로 하므로(나중에 편입된 종목은 제외) 그동안 빠진 회사가 빠져 실제보다 좋게 나올 수 있습니다. 위의 1년 내 회복 확률은 빠진 회사까지 넣은 10년 계산 결과입니다. 종목 수가 많은 악재(2020년 코로나 등)가 전체 평균을 끌어올리므로 <b>S&P 500을 이긴 악재 횟수</b>와 <b>악재별 중간값</b>을 함께 보세요. EPS 전망·투자의견·공매도 등 과거 기록이 없는 항목은 빼고 계산합니다.</p>
     <button class="go" id="btGo" style="background:#3b3a36">과거 성과 계산</button>
     <div id="bt"></div>
   </div>
 </main>
-<footer>현재가는 프리마켓·장중·애프터마켓 30분마다 갱신(약 15분 지연)되어 증권사 앱 시세와 조금 다를 수 있습니다. 매도 적정가는 참고용 계산값입니다. 자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 미국장 시간 30분마다(주가·악재), 장 마감 후 매일(실적·전망) 자동 갱신. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
-<script src="app.js?v=11"></script>
+<footer>현재가는 프리마켓·장중·애프터마켓 30분마다 갱신(500종목 일봉·악재 판정은 장 마감 후 하루 1번)(약 15분 지연)되어 증권사 앱 시세와 조금 다를 수 있습니다. 매도 적정가는 참고용 계산값입니다. 자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 30분마다 현재가·회사 뉴스, 장 마감 후 매일 주가·악재·실적·전망 자동 갱신. 번역이 안 된 뉴스는 영어 원문으로 보여 줍니다. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
+<script src="app.js?v=12"></script>
 </body>
 </html>

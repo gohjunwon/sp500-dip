@@ -1,6 +1,9 @@
 name: backtest-10y
 on:
   workflow_dispatch:
+  push:  # 백테스트 방식이 바뀌면 한 번 자동으로 다시 계산
+    branches: [main]
+    paths: ["scripts/backtest10y.py", "scripts/sp500_pit.json"]
 permissions:
   contents: write
 concurrency:
@@ -9,7 +12,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,7 +24,7 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add docs/data/backtest10y.json
+          git add docs/data/backtest10y.json docs/data/model.json
           git commit -m "10년 백테스트 결과" || echo "no changes"
-          git pull --rebase -X theirs || true
-          git push
+          for i in 1 2 3; do git pull -q --rebase -X theirs && git push -q && exit 0; sleep 5; done
+          exit 1

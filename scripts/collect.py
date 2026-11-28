@@ -54,9 +54,24 @@ def get(url, tries=3):
             time.sleep(2 * (i + 1))
 
 
+CHANGED = set()  # 이번 실행에서 실제로 내용이 바뀐 파일
+STATUS = {}  # 단계별 성공·실패
+TR_FAIL = [0]  # 번역 실패 건수 (실패하면 영어 원문을 그대로 보여 줌)
+
+
 def save(name, obj):
-    with open(os.path.join(DATA, name), "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    """내용이 그대로면 파일을 다시 쓰지 않는다 → 바뀐 것이 없으면 커밋도 생기지 않음"""
+    txt = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
+    path = os.path.join(DATA, name)
+    try:
+        with open(path, encoding="utf-8") as f:
+            if f.read() == txt:
+                return
+    except Exception:
+        pass
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(txt)
+    CHANGED.add(name)
 
 
 def load(name, default):
@@ -156,6 +171,11 @@ def live_quotes(symbols):
         hm = ts.hour * 60 + ts.minute
         sess = "프리마켓" if hm < 570 else "장중" if hm < 960 else "애프터마켓"
         q[s] = [round(float(col.iloc[-1]), 2), ts.strftime("%m/%d %H:%M"), sess]
+    if not q:
+        raise RuntimeError("현재가를 하나도 받지 못함")
+    if load("live.json", {}).get("q") == q:  # 장이 닫혀 값이 그대로면 저장하지 않음
+        print("live: unchanged")
+        return
     save("live.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes"), "q": q})
     print(f"live: {len(q)}")
 
@@ -250,11 +270,13 @@ def translate_many(texts):
     except Exception as e:
         print("translate(google) fail", e)
     res = []
+    TR_FAIL[0] += 1
     for t in texts:
         try:
             res.append(_mymemory(t).strip())
         except Exception as e:
             print("translate(mymemory) fail", e)
+            TR_FAIL[0] += 1
             res.append("")
         time.sleep(1)
     return res
@@ -802,18 +824,27 @@ def main():
 
     def step(name, fn, *args):  # 한 단계가 실패해도 나머지는 계속
         try:
-            return fn(*args)
+            r = fn(*args)
+            STATUS[name] = "ok"
+            return r
         except Exception as e:
             import traceback
             traceback.print_exc()
             print(f"step {name} failed: {e}")
+            STATUS[name] = "fail"
 
     if "meta" in steps:
         save("meta.json", {k: {"n": v["n"], "s": v["s"], "i": v["i"], "a": v["a"]} for k, v in meta.items()})
     if "live" in steps:
         step("live", live_quotes, list(meta))
     if "prices" in steps:
-        df = prices(list(meta))  # 주가가 실패하면 저장할 것이 없으므로 그대로 중단
+        try:
+            df = prices(list(meta))
+            STATUS["prices"] = "ok"
+        except Exception:
+            STATUS["prices"] = "fail"
+            _status()
+            raise  # 주가가 실패하면 저장할 것이 없으므로 그대로 중단
         step("shocks", find_shocks, df, meta)
     if "fund" in steps:
         step("fund", fundamentals, meta)
@@ -825,7 +856,25 @@ def main():
         step("risk40", risk_info, meta, 40)
     if "desc" in steps:
         step("desc", descriptions, meta)
-    save("updated.json", {"t": datetime.now(timezone.utc).isoformat(timespec="minutes")})
+    _status()
+
+
+def _status():
+    """갱신 시각·단계별 성공 여부. 자료가 바뀌었거나 성공/실패 상태가 달라졌을 때만 새로 씀 (빈 커밋 방지)"""
+    old = load("updated.json", {})
+    now = datetime.now(timezone.utc).isoformat(timespec="minutes")
+    st = dict(old.get("st", {}))
+    run = dict(STATUS)
+    if any(k in run for k in ("shocks", "risk", "risk40", "desc")):
+        run["translate"] = "fail" if TR_FAIL[0] else "ok"
+    for k, v in run.items():
+        if k not in st or st[k][0] != v:
+            st[k] = [v, now]  # [상태, 그 상태가 된 시각]
+    fails = sorted(k for k, v in st.items() if v[0] == "fail")
+    if not CHANGED and st == old.get("st"):
+        print("no data change → 커밋 없음")
+        return
+    save("updated.json", {"t": now if CHANGED or "t" not in old else old["t"], "st": st, "fails": fails})
 
 
 if __name__ == "__main__":

@@ -22,8 +22,9 @@ async function init() {
     $('upd').textContent = '갱신 ' + new Date(upd.t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     const opt = f => fetchJSON(f).catch(() => null);
     [D.risk, D.liq, D.macro, D.live, D.model, D.div] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json'), opt('model.json'), opt('div.json')]);
-    try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${o.value === '3' ? ', 추천' : ''}${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
+    try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
     D.risk = D.risk || {}; D.liq = D.liq || {};
+    showHealth(upd); showSurv();
     opt('desc.json').then(d => { D.desc = d; run() });
     run();
   } catch (e) { console.log(e); $('upd').textContent = '데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)'; }
@@ -121,7 +122,7 @@ function screen(shock, ai, bt, shockDD) {
   }
   const secMed = {}; for (const k in secDrops) secMed[k] = median(secDrops[k]);
   const minDrop = V('minDrop'), maxRec = V('maxRec'), minGap = V('minGap'), unkPass = C('unkPass');
-  const asOf = dates[ai]; const res = []; let cand = 0;
+  const asOf = dates[ai]; const res = []; let cand = 0, unkOut = 0;
   for (const r of rows) {
     if (r.dLow > -minDrop) continue;
     if (minGap > 0) { let g = 0; for (const [d, v] of (D.gaps[r.s] || [])) if (d >= shock && d <= postTo && v < g) { g = v; r.gd = d } r.gap = g; if (g > -minGap) continue }
@@ -182,11 +183,13 @@ function screen(shock, ai, bt, shockDD) {
     if (D.model) { const bins = D.model.bins; let rb = bins.findIndex(b => r.rec < b); if (rb < 0 || rb > 3) rb = 3; const t = D.model.table[r.score][rb]; r.prob = t.p; r.probN = t.n; r.probH = t.h; r.probU = t.u; r.probLv = t.lv }
     if (r.score < V('vScore')) continue;
     const all = tests.concat(extra);
-    if (all.some(t => t.st === 'bad' || (t.st === 'unk' && !unkPass))) continue;
+    if (all.some(t => t.st === 'bad')) continue;
+    // EPS 전망은 이 사이트가 기록을 쌓기 시작한 뒤부터만 있으므로, 기록이 없다고 빼지는 않고 ? 로만 표시
+    if (!unkPass && all.some(t => t.st === 'unk' && t.name !== 'EPS전망')) { unkOut++; continue }
     res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
   }
   res.sort((x, y) => (y.prob ?? 0) - (x.prob ?? 0) || y.score - x.score || x.warn - y.warn || y.up - x.up);
-  return { res, cand, secMed, i0, b };
+  return { res, cand, secMed, i0, b, unkOut };
 }
 
 // ---------- 악재 뉴스·해소 지표 ----------
@@ -242,12 +245,12 @@ async function run() {
   const ai = D.dates.length - 1;
   const fx = findShock(shock); const out = screen(shock, ai, false, fx ? fx.dd : null);
   if (!out) { $('summary').textContent = '해당 날짜의 주가 자료가 없습니다.'; $('list').innerHTML = ''; $('resolve').style.display = 'none'; return }
-  const { res, cand, secMed, i0 } = out;
+  const { res, cand, secMed, i0, unkOut } = out;
   showResolve(shock, i0);
   $('secBox').style.display = '';
   $('secs').innerHTML = Object.entries(secMed).sort((a, b) => a[1] - b[1]).map(([k, v]) => `<span class="b">${k} ${fmt(v, 0)}</span>`).join('');
   const minGap = V('minGap');
-  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과${V('vScore') > 0 ? ` + 회복 가능성 ${V('vScore')}점 이상` : ''} <b>${res.length}</b>종목 <span class="note">(1년 내 회복 확률 높은 순)</span>`;
+  $('summary').innerHTML = `<b>${shock}</b> 악재 · 전후 2달 ${V('minDrop')}% 이상 하락${minGap > 0 ? ` + 갭하락 ${minGap}%↑` : ''} <b>${cand}</b>종목 중 아직 회복 전 + 조건 통과${V('vScore') > 0 ? ` + 회복 가능성 ${V('vScore')}점 이상` : ''} <b>${res.length}</b>종목 <span class="note">(1년 내 회복 확률 높은 순)</span>${unkOut ? `<br><span class="note">자료가 없어 확인 못 한 종목 <b>${unkOut}</b>개는 뺐습니다 — 보려면 '가치 유지 조건 설정' 맨 아래 <b>자료가 없는 조건은 통과로 처리</b>를 켜세요.</span>` : ''}`;
   const mix = {}; res.forEach(r => mix[r.m.s] = (mix[r.m.s] || 0) + 1);
   $('mix').innerHTML = res.length ? `결과 업종 분포: ${Object.entries(mix).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(' · ')} — 한 업종·한 종목에 몰리지 않게 나눠 담는 것이 일반적인 위험 관리 방법입니다.` : '';
   const badge = t => `<span class="b ${t.st}">${t.st === 'ok' ? '✓' : t.st === 'bad' ? '✗' : t.st === 'warn' ? '△' : t.st === 'info' ? '·' : '?'} ${t.txt}</span>`;
@@ -259,12 +262,36 @@ async function run() {
    ${D.desc && D.desc[r.s] ? `<div class="desc">${esc(D.desc[r.s])}</div>` : ''}
    <div class="sell">💰 매도 적정가 · 1차 <b>$${r.tg.t1.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t1, r.now), 0)}, 낙폭 절반 회복)</small> · 2차 <b>$${r.tg.t2.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t2, r.now), 0)}, 악재 전 최고가)</small>${r.tg.per && r.tg.per > r.now ? ` · 참고 <b>$${r.tg.per.toFixed(2)}</b> <small>(평소 PER 기준)</small>` : ''}</div>
    <div class="px">${r.m.s} · ${esc(r.m.i)} · ${D.div && D.div[r.s] ? `연 배당률 <b>${(D.div[r.s] / r.now * 100).toFixed(2)}%</b> <small>(최근 1년 주당 $${D.div[r.s].toFixed(2)})</small>` : '배당 없음'}<br>현재가 <b>$${r.now.toFixed(2)}</b> ${r.liveQ ? `<small>(${r.liveQ[2]} ${r.liveQ[1]} 미국 동부시간, 약 15분 지연 · 최근 일봉 종가 $${r.close.toFixed(2)})</small>` : `<small>(${D.dates[D.dates.length - 1].slice(5)} 종가)</small>`}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)})${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
-   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.prob != null ? `<span class="b info">코로나 제외 과거 ${r.probLv === 'cell' ? '같은 점수·비슷한 회복 정도' : '같은 점수'} ${r.probN}건 중 ${r.probH}건 1년 내 최고가 회복 · 1년 뒤 상승 ${Math.round(r.probU * 100)}%${r.probN < 30 ? ' (표본 적음)' : ''}</span>` : ''}${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}</div>
+   <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.prob != null ? `<span class="b info">코로나 제외 과거 ${r.probLv === 'cell' ? '같은 점수·비슷한 회복 정도' : '같은 점수'} ${r.probN}건 중 ${r.probH}건 1년 내 최고가 회복 · 1년 뒤 상승 ${Math.round(r.probU * 100)}%${r.probN < 30 ? ' (표본 적음)' : ''}</span>` : ''}${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}${peakTxt(r)}</div>
    <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>
    <details class="more"><summary>최근 회사 뉴스</summary>${news || '<div class="note">저장된 뉴스 없음</div>'}
    <a href="https://news.google.com/search?q=${encodeURIComponent(r.m.n + ' stock')}&hl=ko&gl=KR&ceid=KR:ko" target="_blank" rel="noopener">구글 뉴스에서 더 보기 →</a></details></div>`
   }).join('') : '<div class="empty">조건을 모두 통과한 종목이 없습니다.<br>하락률이나 조건을 조금 낮춰 보세요.</div>';
+}
+
+// 예상 고점 시기: 과거 비슷한 점수 종목이 악재 저점 뒤 1년 안 최고가에 닿기까지 걸린 거래일(25~75%)
+function peakTxt(r) {
+  const pk = D.model && D.model.peak && D.model.peak[r.score]; if (!pk || !r.ld) return '';
+  const td = n => addDays(r.ld, Math.round(n * 365 / 252)).slice(2).replace(/-/g, '.');
+  return `<span class="b info" title="추정일 뿐입니다. 표본 ${pk.n}건${pk.lv === 'all' ? '(같은 점수 표본이 적어 전체 사용)' : ''}">예상 고점 시기(과거 ${pk.n}건 추정) ${td(pk.p25)}~${td(pk.p75)} · 가운데 ${td(pk.p50)}</span>`;
+}
+
+// ---------- 자료 상태 경고 · 생존편향 안내 ----------
+const STEP_KO = { prices: '주가(일봉)', live: '현재가', shocks: '악재 찾기', fund: '실적(SEC)', est: 'EPS 전망', risk: '회사 뉴스·위험', risk40: '관심종목 뉴스', desc: '회사 설명', translate: '번역(실패한 곳은 영어 원문 표시)' };
+function showHealth(upd) {
+  const box = $('health'); if (!box) return;
+  const msgs = (upd.fails || []).map(k => `${STEP_KO[k] || k} 갱신 실패${upd.st && upd.st[k] ? ` (${new Date(upd.st[k][1]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}부터)` : ''}`);
+  const age = (Date.now() - new Date(upd.t)) / 36e5;
+  if (age > 72) msgs.push(`자료가 ${Math.floor(age / 24)}일째 바뀌지 않았습니다 (주말·휴장이 아니라면 자동 갱신을 확인하세요)`);
+  box.style.display = msgs.length ? '' : 'none';
+  box.innerHTML = msgs.length ? '⚠️ ' + msgs.map(esc).join(' · ') + ' — 마지막으로 받은 자료를 보여 주고 있습니다.' : '';
+}
+function showSurv() {
+  const el = $('survNote'); if (!el) return; const sv = D.model && D.model.surv;
+  el.innerHTML = sv && sv.pit
+    ? `확률은 <b>그 당시 S&P 500 구성종목</b> 기준입니다(나중에 빠진 종목 포함). 과거 구성종목 ${sv.members}개 중 지금은 빠진 ${sv.removed}개가 있고, 그중 <b>${sv.no_price}개는 상장폐지 등으로 주가 자료가 없어</b> 계산에서 빠졌습니다. 이 때문에 확률이 실제보다 조금 높게 나올 수 있습니다.${D.model.unk_excluded ? ' 자료가 없는 종목은 확률 계산에서도 뺐습니다.' : ''}`
+    : '⚠️ 확률은 <b>지금 S&P 500에 있는 종목만</b>으로 계산한 값입니다. 그동안 지수에서 빠지거나 상장폐지된 회사가 빠져 있어 실제보다 높게 나올 수 있습니다(구성종목 기록으로 다시 계산 중).';
 }
 
 // ---------- 4. 과거 성과 검증 ----------

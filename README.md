@@ -12,11 +12,14 @@
 - 매출·영업이익: **악재 날짜 이전에 끝난 분기**가 1년 전 같은 분기보다 유지
 - 내년 EPS 전망: 악재 전 기록 대비 하향 폭이 기준 이하 (매일 기록이 쌓임)
 - 재무: 부채비율(금융·부동산 제외), 최근 1년 순이익 흑자
+- 기본값: 회복 가능성 점수는 거르지 않고 참고 표시만, 자료가 없는 조건은 통과시키지 않음(EPS 전망 기록 없음은 ? 표시만)
+- 과거 확률(model.json): 그 당시 S&P 500 구성종목 기준(편입·편출 기록 `scripts/sp500_pit.json`, 출처 github.com/fja05680/sp500), 주가가 없는 편출 종목 수를 함께 기록
 
 ## 구성
 - `scripts/collect.py` 데이터 수집 (Yahoo Finance 주가·전망, SEC 공시 실적)
 - `docs/index.html` 검색 화면 (GitHub Pages)
-- `.github/workflows/update.yml` 평일 한국시간 오전 7시 무렵 자동 갱신
+- `.github/workflows/update.yml` 30분마다 현재가·뉴스(Cloudflare 알람, live), 뉴욕 8:00~8:45 개장 전 갱신(preopen: 현재가+일봉·악재), 장 마감 후 전체(full). 바뀐 자료가 없으면 커밋하지 않음
+- `.github/workflows/backtest.yml` 백테스트 스크립트가 바뀌면 자동으로 10년 백테스트 재계산
 
 ## GitHub에 올리는 방법
 0. `workflow-update.yml` 을 `.github/workflows/update.yml` 로 옮기기
