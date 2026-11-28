@@ -81,12 +81,12 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
       <label for="vScore">회복 가능성 점수 — 몇 점 이상만 볼까요?</label>
       <select id="vScore">
         <option value="0">0점 이상 (전체 보기)</option>
-        <option value="1">1점 이상 (10년 승률 80%)</option>
-        <option value="2">2점 이상 (10년 승률 84%)</option>
-        <option value="3" selected>3점 이상 (10년 승률 90%, 추천)</option>
-        <option value="4">4점만 (10년 승률 99%, 종목 매우 적음)</option>
+        <option value="1">1점 이상 (코로나 제외 293건: 1년 뒤 상승 66%, 최고가 회복 46%)</option>
+        <option value="2">2점 이상 (코로나 제외 246건: 1년 뒤 상승 69%, 최고가 회복 50%)</option>
+        <option value="3" selected>3점 이상 (코로나 제외 128건: 1년 뒤 상승 72%, 최고가 회복 52%, 추천)</option>
+        <option value="4">4점만 (코로나 제외 15건: 1년 뒤 상승 87%, 최고가 회복 60%, 표본 적음)</option>
       </select>
-      <p class="note" style="margin:6px 2px 0">점수는 4가지 중 맞춘 개수입니다: ① 악재 전 1년 주가 상승 ② 부채비율 100% 이하 ③ 평소 주가 변동이 작음(연 30% 이하) ④ 업종·시장이 20% 넘게 빠진 큰 악재. 점수를 높이면 승률은 오르지만 종목 수가 줄고, 크게 오르는 종목을 놓칠 수 있습니다. 결과는 <b>1년 내 회복 확률</b>(과거 10년 동안 점수·현재 회복 정도가 비슷했던 종목이 1년 안에 악재 전 최고가를 되찾은 비율)이 높은 순서로 나옵니다.</p>
+      <p class="note" style="margin:6px 2px 0">점수는 4가지 중 맞춘 개수입니다: ① 악재 전 1년 주가 상승 ② 부채비율 100% 이하 ③ 평소 주가 변동이 작음(연 30% 이하) ④ 업종·시장이 20% 넘게 빠진 큰 악재. 점수를 높이면 확률은 조금 오르지만 종목 수가 줄고, 크게 오르는 종목을 놓칠 수 있습니다. 결과는 <b>1년 내 회복 확률</b>(2016~2025년 악재 중 <b>코로나 기간을 뺀</b> 자료에서, 점수·현재 회복 정도가 비슷했던 종목이 1년 안에 악재 전 최고가를 실제로 되찾은 비율)이 높은 순서로 나옵니다. 2020년 코로나 때는 거의 모든 종목이 반등해 확률이 부풀려지므로 뺐습니다(보유 기간이 2020년 2~12월과 겹치는 233건 제외, 298건 사용). 비슷한 종목이 20건 미만이면 같은 점수 전체의 비율을 씁니다. 과거 확률일 뿐 미래를 보장하지 않습니다.</p>
     </div>
     <details style="margin-top:14px">
       <summary>가치 유지 조건 설정</summary>
@@ -98,7 +98,7 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
         <input type="checkbox" id="cDe" checked><span>부채비율 ≤ % (금융·부동산 제외)</span><input type="number" id="vDe" value="300">
         <input type="checkbox" id="cNi" checked><span>악재 전 1년 순이익 흑자</span><span></span>
       </div>
-      <div style="font-weight:600;font-size:14px;margin-top:14px">회복 가능성 점수 (2016~2026년 10년 분석에서 잘 회복한 종목의 공통점)</div>
+      <div style="font-weight:600;font-size:14px;margin-top:14px">회복 가능성 점수 (2016~2026년 10년 분석에서 잘 회복한 종목의 공통점 · 코로나 제외 시 효과는 작아짐)</div>
       <p class="note" style="margin:4px 0">① 악재 전 1년 주가 상승 ② 부채비율 100% 이하(금융·부동산은 제외하고 인정) ③ 악재 전 60일 변동성 연 30% 이하 ④ 큰 악재(업종·시장 낙폭 20% 이상). 점수가 높은 종목이 위에 나옵니다.</p>
       <div style="font-weight:600;font-size:14px;margin-top:14px">추가 점검 (켜면 해당 종목 제외, 끄면 노란색 표시만)</div>
       <div class="crit">
@@ -127,6 +127,6 @@ footer{max-width:760px;margin:auto;padding:0 16px 30px;font-size:12px;color:var(
   </div>
 </main>
 <footer>현재가는 프리마켓·장중·애프터마켓 30분마다 갱신(약 15분 지연)되어 증권사 앱 시세와 조금 다를 수 있습니다. 매도 적정가는 참고용 계산값입니다. 자료: 주가·EPS 전망·투자의견·공매도·내부자·실적일·회사 뉴스 Yahoo Finance, 실적·재무·현금흐름 SEC 공시(XBRL), 악재 뉴스 Google News(번역). 미국장 시간 30분마다(주가·악재), 장 마감 후 매일(실적·전망) 자동 갱신. 페이지를 새로고침하면 최신 자료를 다시 불러옵니다. 종목 추천이 아닌 조건 검색 도구입니다.</footer>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>

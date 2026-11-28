@@ -181,25 +181,50 @@ def main():
     build_model(picks)
 
 
-def build_model(picks, k=10):
-    """1년 내 회복 확률 표: 회복 가능성 점수(0~4) × 진입 시 회복 정도(60/70/80/90% 구간)"""
+def build_model(picks, min_n=20):
+    """1년 내 회복 확률 표: 회복 가능성 점수(0~4) x 진입 시 회복 정도(60/70/80/90% 구간).
+    코로나 기간(보유 기간이 2020-02~2020-12와 겹치는 경우)은 거의 모든 종목이 반등해 확률을
+    부풀리므로 뺀다. 보정 없이 실제 건수 그대로 쓰고, 칸의 표본이 min_n건 미만이면
+    같은 점수 전체의 실제 비율을 쓴다."""
     import pandas as pd
     x = pd.DataFrame(picks)
     x = x[x["full1y"]].copy()
+    sd = pd.to_datetime(x["shock"])
+    cov = (sd + pd.DateOffset(months=14) >= "2020-02-01") & (sd <= "2020-12-31")
+    n_all, n_cov = len(x), int(cov.sum())
+    x = x[~cov].copy()
     fin = x.sec.isin(["금융", "부동산"])
+    sdd = pd.concat([x.shock_dd.fillna(0), x.sec_med.fillna(0)], axis=1).min(axis=1)
+    sdd[x.shock_dd.isna() & x.sec_med.isna()] = float("nan")
     x["score"] = (x.mom12 > 0).astype(int) + (fin | (x.de <= 100)).astype(int) + \
-        (x.vol60 <= 30).astype(int) + (x.shock_dd <= -20).astype(int)
-    x["rb"] = pd.cut(x.rec_entry, [0, 60, 70, 80, 90], labels=False).fillna(0).astype(int)
-    tab = {}
+        (x.vol60 <= 30).astype(int) + (sdd <= -20).astype(int)
+    # 사이트(app.js)와 같은 구간: <60, 60~70, 70~80, 80 이상
+    x["rb"] = pd.cut(x.rec_entry, [-1e9, 60, 70, 80, 1e9], right=False, labels=False).fillna(0).astype(int)
+    x["hit"] = x.hit1y.fillna(False).astype(bool)
+    x["up"] = x["1y"] > 0
+
+    def st(c):
+        n = int(len(c))
+        return {"n": n, "h": int(c.hit.sum()), "p": round(float(c.hit.mean()), 3) if n else None,
+                "u": round(float(c.up.mean()), 3) if n else None,
+                "r": round(float(c["1y"].median()), 1) if n else None}
+    tab, grp, thr = {}, {}, {}
     for s in range(5):
         xs = x[x.score == s]
-        base = xs.hit1y.mean() if len(xs) else x.hit1y.mean()
+        grp[s] = st(xs)
         tab[s] = {}
         for b in range(4):
             c = xs[xs.rb == b]
-            tab[s][b] = {"p": round(float((c.hit1y.sum() + k * base) / (len(c) + k)), 3), "n": int(len(c))}
-    C.save("model.json", {"table": tab, "bins": [60, 70, 80, 90], "n": int(len(x)),
-                          "base": round(float(x.hit1y.mean()), 3), "k": k})
+            if len(c) >= min_n:
+                tab[s][b] = dict(st(c), lv="cell")
+            else:
+                tab[s][b] = dict(grp[s], lv="score")
+        thr[s] = st(x[x.score >= s])
+    yrs = sorted(x.shock.str[:4].unique())
+    C.save("model.json", {"table": tab, "group": grp, "thr": thr, "bins": [60, 70, 80, 90],
+                          "n": int(len(x)), "n_all": n_all, "n_covid": n_cov, "min_n": min_n,
+                          "years": f"{yrs[0]}~{yrs[-1]}", "base": round(float(x.hit.mean()), 3),
+                          "desc": "코로나 기간 제외, 악재 2달 뒤 후보가 1년 안에 악재 전 최고가를 회복한 실제 비율"})
 
 
 if __name__ == "__main__":
