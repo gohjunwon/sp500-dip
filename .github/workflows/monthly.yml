@@ -1,0 +1,24 @@
+name: research-monthly
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance pandas
+      - run: python research/monthly.py
+      - name: commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add research/monthly.json
+          git commit -m "월별 수익률 연구" || echo "no changes"
+          git pull --rebase -X theirs || true
+          git push
