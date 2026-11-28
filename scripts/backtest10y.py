@@ -35,12 +35,62 @@ def fund_all(meta):
             for d, v in tot.items():
                 if d not in liab and d in eq:
                     liab[d] = v - eq[d]
+            ie = C.quarterly_series(facts, IE_TAGS)
+            ws = C.quarterly_series(facts, ["WeightedAverageNumberOfDilutedSharesOutstanding",
+                                            "WeightedAverageNumberOfSharesOutstandingBasic"], "shares", pure_only=True)
             out[sym] = {"q": [[e, rev.get(e), op.get(e), ni.get(e)] for e in sorted(set(rev) | set(op))],
-                        "b": [[e, liab[e], eq[e]] for e in sorted(set(liab) & set(eq))]}
+                        "b": [[e, liab[e], eq[e]] for e in sorted(set(liab) & set(eq))],
+                        "ie": ie, "ws": {k: v for k, v in ws.items() if v and v > 0}, "fd": filed_dates(facts)}
         except Exception as e:
             print("fund fail", sym, e)
         time.sleep(0.12)
     return out
+
+
+IE_TAGS = ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt", "InterestAndDebtExpense"]
+
+
+def filed_dates(facts):
+    """분기말 → 그 분기 실적이 처음 공시(10-Q·10-K)된 날 (나중 보고서의 비교 수치는 무시)"""
+    sec = facts.get("facts", {}).get("us-gaap", {})
+    fd = {}
+    for tag in C.REV_TAGS + C.OP_TAGS:
+        for e in sec.get(tag, {}).get("units", {}).get("USD", []):
+            if e.get("form") not in ("10-Q", "10-K") or not e.get("filed") or "start" not in e:
+                continue
+            if e["filed"] < e["end"]:
+                continue
+            if e["end"] not in fd or e["filed"] < fd[e["end"]]:
+                fd[e["end"]] = e["filed"]
+    return fd
+
+
+def post_info(f, shock, entry_d, end_d):
+    """신호일(진입일) 뒤 1년 안에 공시된 분기 실적: [공시일, 분기말, 매출 전년비, 영업이익 전년비, 주식 수 / 악재 전 주식 수]
+    + 신호일 시점 이자보상배율(최근 4분기 영업이익 ÷ 이자비용)"""
+    if not f or not f.get("fd"):
+        return None, None
+    q, fd, ws = f["q"], f["fd"], f.get("ws", {})
+    pre_ws = [v for k, v in sorted(ws.items()) if k < shock]
+    base = pre_ws[-1] if pre_ws else None
+    out = []
+    for i, x in enumerate(q):
+        d = fd.get(x[0])
+        if not d or not (entry_d < d <= end_d) or x[0] < shock:
+            continue
+        qs = q[:i + 1]
+        r = ws.get(x[0])
+        out.append([d, x[0], yoy(qs, 1), yoy(qs, 2), round(r / base, 3) if r and base else None])
+    cov = None
+    pre = [x for x in q if x[0] < shock][-4:]
+    ie = f.get("ie", {})
+    if len(pre) == 4 and all(x[2] is not None for x in pre) and all(ie.get(x[0]) is not None for x in pre):
+        tie = sum(ie[x[0]] for x in pre)
+        if tie > 0:
+            cov = round(sum(x[2] for x in pre) / tie, 1)
+        elif tie == 0:
+            cov = 999
+    return out, cov
 
 
 def yoy(qs, col):
@@ -170,6 +220,11 @@ def main():
         mem = [s for s in df.columns if is_member(iv, through, meta, s, sh["d"])]
         miss_at[sh["d"]] = sum(1 for s in no_price if is_member(iv, through, meta, s, sh["d"]))
         win_pre, win_post = df.iloc[a:i0 + 1][mem], df.iloc[i0 + 1:b + 1][mem]
+        # 하루 단위 '회사 고유' 하락: 종목 일간 수익률 - 같은 업종 중간값 (악재 뒤 2달 중 가장 나쁜 날)
+        rw = rets.iloc[i0 + 1:b + 1][mem]
+        sec_day = rw.T.groupby(lambda s: meta[s]["s"]).median().T
+        sp_e = spx.iloc[:entry + 1].dropna()
+        below200 = bool(len(sp_e) >= 200 and sp_e.iloc[-1] < sp_e.tail(200).mean())
         high, low = win_pre.max(), win_post.min()
         drop = (low / high - 1) * 100
         sec_med = drop.groupby(lambda s: meta[s]["s"]).median()
@@ -236,6 +291,16 @@ def main():
                 p1 = df[s].iloc[:t + 1].dropna()
                 row[k] = round(float(p1.iloc[-1] / e_px - 1) * 100, 1) if not p1.empty else None
                 row["sp" + k] = round(float(spx.iloc[t] / spx.iloc[entry] - 1) * 100, 1)
+            # 손실 줄이기 규칙 검증용: 진입가 대비 일별 종가(1000 = 진입가), 진입 뒤 실적 공시, 이자보상배율 등
+            path = df[s].iloc[entry:entry + 253].ffill()
+            row["px"] = [None if pd.isna(v) else int(round(v / e_px * 1000)) for v in path.values]
+            row["px_dates"] = [dates[entry].strftime("%Y-%m-%d"), dates[min(entry + 252, last)].strftime("%Y-%m-%d")]
+            row["pre_high"] = int(round(float(high[s] / e_px * 1000)))
+            idio = rw[s] - sec_day[meta[s]["s"]]
+            row["idio1d"] = round(float(idio.min()) * 100, 1) if idio.notna().any() else None
+            row["below200"] = below200
+            row["post"], row["icov"] = post_info(fund.get(s), sh["d"], dates[entry].strftime("%Y-%m-%d"),
+                                                 dates[min(entry + 252, last)].strftime("%Y-%m-%d"))
             picks.append(row)
     surv = {"pit": True, "src": "github.com/fja05680/sp500", "members": len(ever), "removed": len(removed),
             "removed_with_price": len(removed) - len(no_price), "no_price": len(no_price),
