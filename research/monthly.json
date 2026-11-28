@@ -1,0 +1,1079 @@
+{
+ "excovid": {
+  "0": [
+   {
+    "m": 1,
+    "n": 298,
+    "cum_mean": 5.3,
+    "cum_med": 4.7,
+    "win": 68,
+    "month_mean": 5.3,
+    "month_med": 4.7,
+    "month_win": 68,
+    "sp_cum": 2.0
+   },
+   {
+    "m": 2,
+    "n": 298,
+    "cum_mean": 6.8,
+    "cum_med": 5.2,
+    "win": 62,
+    "month_mean": 1.4,
+    "month_med": 1.5,
+    "month_win": 55,
+    "sp_cum": 3.3
+   },
+   {
+    "m": 3,
+    "n": 298,
+    "cum_mean": 11.5,
+    "cum_med": 9.8,
+    "win": 69,
+    "month_mean": 4.6,
+    "month_med": 4.8,
+    "month_win": 64,
+    "sp_cum": 4.5
+   },
+   {
+    "m": 4,
+    "n": 298,
+    "cum_mean": 11.8,
+    "cum_med": 7.2,
+    "win": 61,
+    "month_mean": 0.0,
+    "month_med": -0.4,
+    "month_win": 48,
+    "sp_cum": 5.1
+   },
+   {
+    "m": 5,
+    "n": 298,
+    "cum_mean": 15.1,
+    "cum_med": 8.6,
+    "win": 64,
+    "month_mean": 2.6,
+    "month_med": 1.8,
+    "month_win": 56,
+    "sp_cum": 7.3
+   },
+   {
+    "m": 6,
+    "n": 298,
+    "cum_mean": 16.1,
+    "cum_med": 8.2,
+    "win": 60,
+    "month_mean": 0.1,
+    "month_med": 1.0,
+    "month_win": 54,
+    "sp_cum": 7.8
+   },
+   {
+    "m": 7,
+    "n": 298,
+    "cum_mean": 17.8,
+    "cum_med": 7.8,
+    "win": 59,
+    "month_mean": 0.7,
+    "month_med": 0.1,
+    "month_win": 50,
+    "sp_cum": 8.2
+   },
+   {
+    "m": 8,
+    "n": 298,
+    "cum_mean": 24.4,
+    "cum_med": 13.1,
+    "win": 65,
+    "month_mean": 6.2,
+    "month_med": 5.2,
+    "month_win": 69,
+    "sp_cum": 10.8
+   },
+   {
+    "m": 9,
+    "n": 298,
+    "cum_mean": 26.0,
+    "cum_med": 8.8,
+    "win": 62,
+    "month_mean": -0.7,
+    "month_med": -1.7,
+    "month_win": 43,
+    "sp_cum": 10.9
+   },
+   {
+    "m": 10,
+    "n": 298,
+    "cum_mean": 29.6,
+    "cum_med": 12.1,
+    "win": 64,
+    "month_mean": 2.6,
+    "month_med": 2.4,
+    "month_win": 59,
+    "sp_cum": 12.6
+   },
+   {
+    "m": 11,
+    "n": 298,
+    "cum_mean": 31.4,
+    "cum_med": 15.3,
+    "win": 63,
+    "month_mean": 1.5,
+    "month_med": 1.1,
+    "month_win": 57,
+    "sp_cum": 13.4
+   },
+   {
+    "m": 12,
+    "n": 298,
+    "cum_mean": 42.1,
+    "cum_med": 17.4,
+    "win": 64,
+    "month_mean": 4.5,
+    "month_med": 3.4,
+    "month_win": 63,
+    "sp_cum": 16.2
+   }
+  ],
+  "2": [
+   {
+    "m": 1,
+    "n": 246,
+    "cum_mean": 5.6,
+    "cum_med": 4.5,
+    "win": 67,
+    "month_mean": 5.6,
+    "month_med": 4.5,
+    "month_win": 67,
+    "sp_cum": 1.9
+   },
+   {
+    "m": 2,
+    "n": 246,
+    "cum_mean": 7.9,
+    "cum_med": 6.6,
+    "win": 64,
+    "month_mean": 2.2,
+    "month_med": 2.5,
+    "month_win": 58,
+    "sp_cum": 3.3
+   },
+   {
+    "m": 3,
+    "n": 246,
+    "cum_mean": 12.9,
+    "cum_med": 10.8,
+    "win": 69,
+    "month_mean": 4.8,
+    "month_med": 5.3,
+    "month_win": 65,
+    "sp_cum": 4.7
+   },
+   {
+    "m": 4,
+    "n": 246,
+    "cum_mean": 14.2,
+    "cum_med": 9.3,
+    "win": 63,
+    "month_mean": 0.9,
+    "month_med": 0.7,
+    "month_win": 52,
+    "sp_cum": 5.5
+   },
+   {
+    "m": 5,
+    "n": 246,
+    "cum_mean": 17.8,
+    "cum_med": 10.5,
+    "win": 67,
+    "month_mean": 2.6,
+    "month_med": 2.0,
+    "month_win": 58,
+    "sp_cum": 7.6
+   },
+   {
+    "m": 6,
+    "n": 246,
+    "cum_mean": 19.2,
+    "cum_med": 10.0,
+    "win": 63,
+    "month_mean": 0.4,
+    "month_med": 1.2,
+    "month_win": 54,
+    "sp_cum": 8.2
+   },
+   {
+    "m": 7,
+    "n": 246,
+    "cum_mean": 21.6,
+    "cum_med": 10.5,
+    "win": 63,
+    "month_mean": 1.2,
+    "month_med": -0.0,
+    "month_win": 49,
+    "sp_cum": 8.6
+   },
+   {
+    "m": 8,
+    "n": 246,
+    "cum_mean": 28.6,
+    "cum_med": 16.4,
+    "win": 69,
+    "month_mean": 6.4,
+    "month_med": 5.3,
+    "month_win": 70,
+    "sp_cum": 11.0
+   },
+   {
+    "m": 9,
+    "n": 246,
+    "cum_mean": 31.1,
+    "cum_med": 11.8,
+    "win": 67,
+    "month_mean": 0.1,
+    "month_med": -1.2,
+    "month_win": 46,
+    "sp_cum": 11.2
+   },
+   {
+    "m": 10,
+    "n": 246,
+    "cum_mean": 34.9,
+    "cum_med": 17.2,
+    "win": 68,
+    "month_mean": 2.5,
+    "month_med": 2.2,
+    "month_win": 60,
+    "sp_cum": 12.7
+   },
+   {
+    "m": 11,
+    "n": 246,
+    "cum_mean": 37.5,
+    "cum_med": 20.0,
+    "win": 67,
+    "month_mean": 2.0,
+    "month_med": 1.5,
+    "month_win": 58,
+    "sp_cum": 13.4
+   },
+   {
+    "m": 12,
+    "n": 246,
+    "cum_mean": 49.9,
+    "cum_med": 22.1,
+    "win": 68,
+    "month_mean": 5.0,
+    "month_med": 3.5,
+    "month_win": 65,
+    "sp_cum": 16.4
+   }
+  ],
+  "3": [
+   {
+    "m": 1,
+    "n": 128,
+    "cum_mean": 6.0,
+    "cum_med": 6.8,
+    "win": 66,
+    "month_mean": 6.0,
+    "month_med": 6.8,
+    "month_win": 66,
+    "sp_cum": 2.6
+   },
+   {
+    "m": 2,
+    "n": 128,
+    "cum_mean": 8.3,
+    "cum_med": 8.0,
+    "win": 66,
+    "month_mean": 2.3,
+    "month_med": 1.8,
+    "month_win": 57,
+    "sp_cum": 4.5
+   },
+   {
+    "m": 3,
+    "n": 128,
+    "cum_mean": 13.7,
+    "cum_med": 11.2,
+    "win": 74,
+    "month_mean": 5.5,
+    "month_med": 5.9,
+    "month_win": 68,
+    "sp_cum": 6.0
+   },
+   {
+    "m": 4,
+    "n": 128,
+    "cum_mean": 14.8,
+    "cum_med": 11.3,
+    "win": 66,
+    "month_mean": 0.6,
+    "month_med": 0.6,
+    "month_win": 52,
+    "sp_cum": 6.9
+   },
+   {
+    "m": 5,
+    "n": 128,
+    "cum_mean": 16.5,
+    "cum_med": 9.6,
+    "win": 70,
+    "month_mean": 1.4,
+    "month_med": 0.9,
+    "month_win": 55,
+    "sp_cum": 9.0
+   },
+   {
+    "m": 6,
+    "n": 128,
+    "cum_mean": 17.6,
+    "cum_med": 11.1,
+    "win": 63,
+    "month_mean": 0.6,
+    "month_med": 1.2,
+    "month_win": 56,
+    "sp_cum": 9.8
+   },
+   {
+    "m": 7,
+    "n": 128,
+    "cum_mean": 19.0,
+    "cum_med": 13.1,
+    "win": 66,
+    "month_mean": 0.6,
+    "month_med": -0.1,
+    "month_win": 48,
+    "sp_cum": 10.5
+   },
+   {
+    "m": 8,
+    "n": 128,
+    "cum_mean": 26.0,
+    "cum_med": 16.7,
+    "win": 71,
+    "month_mean": 6.4,
+    "month_med": 6.1,
+    "month_win": 73,
+    "sp_cum": 12.8
+   },
+   {
+    "m": 9,
+    "n": 128,
+    "cum_mean": 28.4,
+    "cum_med": 15.9,
+    "win": 68,
+    "month_mean": 0.4,
+    "month_med": -0.9,
+    "month_win": 47,
+    "sp_cum": 13.1
+   },
+   {
+    "m": 10,
+    "n": 128,
+    "cum_mean": 32.5,
+    "cum_med": 19.2,
+    "win": 68,
+    "month_mean": 2.6,
+    "month_med": 1.9,
+    "month_win": 61,
+    "sp_cum": 14.5
+   },
+   {
+    "m": 11,
+    "n": 128,
+    "cum_mean": 34.5,
+    "cum_med": 23.3,
+    "win": 66,
+    "month_mean": 1.9,
+    "month_med": 1.0,
+    "month_win": 55,
+    "sp_cum": 14.9
+   },
+   {
+    "m": 12,
+    "n": 128,
+    "cum_mean": 44.2,
+    "cum_med": 23.8,
+    "win": 70,
+    "month_mean": 5.5,
+    "month_med": 4.1,
+    "month_win": 68,
+    "sp_cum": 18.1
+   }
+  ],
+  "4": [
+   {
+    "m": 1,
+    "n": 15,
+    "cum_mean": 9.7,
+    "cum_med": 9.5,
+    "win": 87,
+    "month_mean": 9.7,
+    "month_med": 9.5,
+    "month_win": 87,
+    "sp_cum": 4.7
+   },
+   {
+    "m": 2,
+    "n": 15,
+    "cum_mean": 14.0,
+    "cum_med": 15.8,
+    "win": 80,
+    "month_mean": 4.2,
+    "month_med": 0.8,
+    "month_win": 73,
+    "sp_cum": 8.3
+   },
+   {
+    "m": 3,
+    "n": 15,
+    "cum_mean": 18.2,
+    "cum_med": 15.2,
+    "win": 93,
+    "month_mean": 4.0,
+    "month_med": 3.8,
+    "month_win": 67,
+    "sp_cum": 10.6
+   },
+   {
+    "m": 4,
+    "n": 15,
+    "cum_mean": 22.2,
+    "cum_med": 23.9,
+    "win": 87,
+    "month_mean": 3.7,
+    "month_med": 5.9,
+    "month_win": 73,
+    "sp_cum": 12.8
+   },
+   {
+    "m": 5,
+    "n": 15,
+    "cum_mean": 22.8,
+    "cum_med": 20.4,
+    "win": 100,
+    "month_mean": 0.7,
+    "month_med": 2.4,
+    "month_win": 60,
+    "sp_cum": 15.5
+   },
+   {
+    "m": 6,
+    "n": 15,
+    "cum_mean": 19.3,
+    "cum_med": 18.7,
+    "win": 73,
+    "month_mean": -3.1,
+    "month_med": -1.7,
+    "month_win": 40,
+    "sp_cum": 16.6
+   },
+   {
+    "m": 7,
+    "n": 15,
+    "cum_mean": 26.7,
+    "cum_med": 19.3,
+    "win": 93,
+    "month_mean": 6.3,
+    "month_med": 6.1,
+    "month_win": 73,
+    "sp_cum": 18.7
+   },
+   {
+    "m": 8,
+    "n": 15,
+    "cum_mean": 34.1,
+    "cum_med": 21.7,
+    "win": 87,
+    "month_mean": 5.3,
+    "month_med": 4.8,
+    "month_win": 87,
+    "sp_cum": 19.7
+   },
+   {
+    "m": 9,
+    "n": 15,
+    "cum_mean": 33.5,
+    "cum_med": 21.4,
+    "win": 87,
+    "month_mean": 0.3,
+    "month_med": -0.8,
+    "month_win": 47,
+    "sp_cum": 20.6
+   },
+   {
+    "m": 10,
+    "n": 15,
+    "cum_mean": 33.1,
+    "cum_med": 27.3,
+    "win": 87,
+    "month_mean": -0.0,
+    "month_med": -0.7,
+    "month_win": 47,
+    "sp_cum": 20.2
+   },
+   {
+    "m": 11,
+    "n": 15,
+    "cum_mean": 35.3,
+    "cum_med": 36.8,
+    "win": 80,
+    "month_mean": 2.3,
+    "month_med": 3.7,
+    "month_win": 60,
+    "sp_cum": 19.0
+   },
+   {
+    "m": 12,
+    "n": 15,
+    "cum_mean": 40.6,
+    "cum_med": 41.8,
+    "win": 87,
+    "month_mean": 3.5,
+    "month_med": 4.9,
+    "month_win": 73,
+    "sp_cum": 24.9
+   }
+  ]
+ },
+ "all": {
+  "0": [
+   {
+    "m": 1,
+    "n": 531,
+    "cum_mean": 9.1,
+    "cum_med": 8.6,
+    "win": 77,
+    "month_mean": 9.1,
+    "month_med": 8.6,
+    "month_win": 77,
+    "sp_cum": 5.7
+   },
+   {
+    "m": 2,
+    "n": 531,
+    "cum_mean": 13.1,
+    "cum_med": 10.8,
+    "win": 73,
+    "month_mean": 3.7,
+    "month_med": 2.6,
+    "month_win": 58,
+    "sp_cum": 8.9
+   },
+   {
+    "m": 3,
+    "n": 531,
+    "cum_mean": 17.3,
+    "cum_med": 15.0,
+    "win": 78,
+    "month_mean": 4.1,
+    "month_med": 4.0,
+    "month_win": 64,
+    "sp_cum": 11.2
+   },
+   {
+    "m": 4,
+    "n": 531,
+    "cum_mean": 19.5,
+    "cum_med": 16.4,
+    "win": 74,
+    "month_mean": 1.7,
+    "month_med": 1.6,
+    "month_win": 57,
+    "sp_cum": 14.1
+   },
+   {
+    "m": 5,
+    "n": 531,
+    "cum_mean": 21.4,
+    "cum_med": 15.0,
+    "win": 75,
+    "month_mean": 1.4,
+    "month_med": 0.8,
+    "month_win": 53,
+    "sp_cum": 15.4
+   },
+   {
+    "m": 6,
+    "n": 531,
+    "cum_mean": 22.3,
+    "cum_med": 17.9,
+    "win": 71,
+    "month_mean": 0.4,
+    "month_med": 1.0,
+    "month_win": 55,
+    "sp_cum": 15.7
+   },
+   {
+    "m": 7,
+    "n": 531,
+    "cum_mean": 26.7,
+    "cum_med": 19.5,
+    "win": 74,
+    "month_mean": 3.2,
+    "month_med": 2.3,
+    "month_win": 61,
+    "sp_cum": 18.2
+   },
+   {
+    "m": 8,
+    "n": 531,
+    "cum_mean": 34.7,
+    "cum_med": 26.2,
+    "win": 77,
+    "month_mean": 6.7,
+    "month_med": 5.3,
+    "month_win": 71,
+    "sp_cum": 22.1
+   },
+   {
+    "m": 9,
+    "n": 531,
+    "cum_mean": 38.8,
+    "cum_med": 26.4,
+    "win": 77,
+    "month_mean": 1.8,
+    "month_med": 0.9,
+    "month_win": 54,
+    "sp_cum": 24.2
+   },
+   {
+    "m": 10,
+    "n": 531,
+    "cum_mean": 44.5,
+    "cum_med": 29.6,
+    "win": 77,
+    "month_mean": 3.3,
+    "month_med": 2.5,
+    "month_win": 62,
+    "sp_cum": 26.4
+   },
+   {
+    "m": 11,
+    "n": 531,
+    "cum_mean": 47.6,
+    "cum_med": 33.5,
+    "win": 77,
+    "month_mean": 2.4,
+    "month_med": 2.0,
+    "month_win": 61,
+    "sp_cum": 28.0
+   },
+   {
+    "m": 12,
+    "n": 531,
+    "cum_mean": 57.4,
+    "cum_med": 39.6,
+    "win": 77,
+    "month_mean": 4.7,
+    "month_med": 4.3,
+    "month_win": 70,
+    "sp_cum": 32.0
+   }
+  ],
+  "2": [
+   {
+    "m": 1,
+    "n": 456,
+    "cum_mean": 9.5,
+    "cum_med": 9.3,
+    "win": 78,
+    "month_mean": 9.5,
+    "month_med": 9.3,
+    "month_win": 78,
+    "sp_cum": 6.0
+   },
+   {
+    "m": 2,
+    "n": 456,
+    "cum_mean": 14.2,
+    "cum_med": 12.5,
+    "win": 76,
+    "month_mean": 4.4,
+    "month_med": 3.3,
+    "month_win": 60,
+    "sp_cum": 9.5
+   },
+   {
+    "m": 3,
+    "n": 456,
+    "cum_mean": 18.6,
+    "cum_med": 16.1,
+    "win": 79,
+    "month_mean": 4.3,
+    "month_med": 4.0,
+    "month_win": 65,
+    "sp_cum": 11.9
+   },
+   {
+    "m": 4,
+    "n": 456,
+    "cum_mean": 21.2,
+    "cum_med": 19.3,
+    "win": 76,
+    "month_mean": 2.1,
+    "month_med": 2.4,
+    "month_win": 60,
+    "sp_cum": 15.3
+   },
+   {
+    "m": 5,
+    "n": 456,
+    "cum_mean": 23.4,
+    "cum_med": 18.2,
+    "win": 78,
+    "month_mean": 1.5,
+    "month_med": 1.0,
+    "month_win": 54,
+    "sp_cum": 16.4
+   },
+   {
+    "m": 6,
+    "n": 456,
+    "cum_mean": 25.2,
+    "cum_med": 21.1,
+    "win": 75,
+    "month_mean": 1.1,
+    "month_med": 1.3,
+    "month_win": 57,
+    "sp_cum": 16.8
+   },
+   {
+    "m": 7,
+    "n": 456,
+    "cum_mean": 29.9,
+    "cum_med": 23.5,
+    "win": 77,
+    "month_mean": 3.4,
+    "month_med": 2.3,
+    "month_win": 61,
+    "sp_cum": 19.5
+   },
+   {
+    "m": 8,
+    "n": 456,
+    "cum_mean": 38.3,
+    "cum_med": 29.7,
+    "win": 81,
+    "month_mean": 6.8,
+    "month_med": 5.4,
+    "month_win": 71,
+    "sp_cum": 23.5
+   },
+   {
+    "m": 9,
+    "n": 456,
+    "cum_mean": 42.8,
+    "cum_med": 31.0,
+    "win": 81,
+    "month_mean": 2.0,
+    "month_med": 1.1,
+    "month_win": 56,
+    "sp_cum": 25.7
+   },
+   {
+    "m": 10,
+    "n": 456,
+    "cum_mean": 48.1,
+    "cum_med": 34.7,
+    "win": 82,
+    "month_mean": 3.2,
+    "month_med": 2.5,
+    "month_win": 64,
+    "sp_cum": 27.8
+   },
+   {
+    "m": 11,
+    "n": 456,
+    "cum_mean": 52.4,
+    "cum_med": 38.5,
+    "win": 81,
+    "month_mean": 2.8,
+    "month_med": 2.2,
+    "month_win": 63,
+    "sp_cum": 29.4
+   },
+   {
+    "m": 12,
+    "n": 456,
+    "cum_mean": 63.8,
+    "cum_med": 44.8,
+    "win": 82,
+    "month_mean": 5.4,
+    "month_med": 4.6,
+    "month_win": 73,
+    "sp_cum": 33.7
+   }
+  ],
+  "3": [
+   {
+    "m": 1,
+    "n": 303,
+    "cum_mean": 10.2,
+    "cum_med": 9.5,
+    "win": 80,
+    "month_mean": 10.2,
+    "month_med": 9.5,
+    "month_win": 80,
+    "sp_cum": 7.4
+   },
+   {
+    "m": 2,
+    "n": 303,
+    "cum_mean": 15.5,
+    "cum_med": 14.0,
+    "win": 80,
+    "month_mean": 5.0,
+    "month_med": 3.2,
+    "month_win": 61,
+    "sp_cum": 11.9
+   },
+   {
+    "m": 3,
+    "n": 303,
+    "cum_mean": 19.3,
+    "cum_med": 17.1,
+    "win": 84,
+    "month_mean": 3.9,
+    "month_med": 4.0,
+    "month_win": 64,
+    "sp_cum": 14.5
+   },
+   {
+    "m": 4,
+    "n": 303,
+    "cum_mean": 22.7,
+    "cum_med": 21.5,
+    "win": 81,
+    "month_mean": 2.7,
+    "month_med": 3.1,
+    "month_win": 63,
+    "sp_cum": 18.7
+   },
+   {
+    "m": 5,
+    "n": 303,
+    "cum_mean": 23.7,
+    "cum_med": 19.0,
+    "win": 83,
+    "month_mean": 0.7,
+    "month_med": 0.5,
+    "month_win": 52,
+    "sp_cum": 19.6
+   },
+   {
+    "m": 6,
+    "n": 303,
+    "cum_mean": 25.5,
+    "cum_med": 22.5,
+    "win": 79,
+    "month_mean": 1.4,
+    "month_med": 1.2,
+    "month_win": 58,
+    "sp_cum": 20.1
+   },
+   {
+    "m": 7,
+    "n": 303,
+    "cum_mean": 30.4,
+    "cum_med": 24.8,
+    "win": 83,
+    "month_mean": 3.6,
+    "month_med": 2.5,
+    "month_win": 63,
+    "sp_cum": 23.4
+   },
+   {
+    "m": 8,
+    "n": 303,
+    "cum_mean": 39.0,
+    "cum_med": 34.5,
+    "win": 85,
+    "month_mean": 6.8,
+    "month_med": 6.1,
+    "month_win": 73,
+    "sp_cum": 28.0
+   },
+   {
+    "m": 9,
+    "n": 303,
+    "cum_mean": 42.7,
+    "cum_med": 36.8,
+    "win": 84,
+    "month_mean": 1.9,
+    "month_med": 1.1,
+    "month_win": 57,
+    "sp_cum": 30.6
+   },
+   {
+    "m": 10,
+    "n": 303,
+    "cum_mean": 48.0,
+    "cum_med": 38.5,
+    "win": 85,
+    "month_mean": 3.2,
+    "month_med": 2.4,
+    "month_win": 65,
+    "sp_cum": 33.1
+   },
+   {
+    "m": 11,
+    "n": 303,
+    "cum_mean": 50.9,
+    "cum_med": 41.4,
+    "win": 83,
+    "month_mean": 2.4,
+    "month_med": 2.3,
+    "month_win": 62,
+    "sp_cum": 34.4
+   },
+   {
+    "m": 12,
+    "n": 303,
+    "cum_mean": 60.4,
+    "cum_med": 49.7,
+    "win": 86,
+    "month_mean": 5.7,
+    "month_med": 5.0,
+    "month_win": 78,
+    "sp_cum": 39.3
+   }
+  ],
+  "4": [
+   {
+    "m": 1,
+    "n": 128,
+    "cum_mean": 11.8,
+    "cum_med": 11.1,
+    "win": 88,
+    "month_mean": 11.8,
+    "month_med": 11.1,
+    "month_win": 88,
+    "sp_cum": 10.3
+   },
+   {
+    "m": 2,
+    "n": 128,
+    "cum_mean": 18.4,
+    "cum_med": 16.3,
+    "win": 90,
+    "month_mean": 6.4,
+    "month_med": 3.0,
+    "month_win": 64,
+    "sp_cum": 16.6
+   },
+   {
+    "m": 3,
+    "n": 128,
+    "cum_mean": 21.5,
+    "cum_med": 18.6,
+    "win": 91,
+    "month_mean": 3.2,
+    "month_med": 3.8,
+    "month_win": 66,
+    "sp_cum": 19.8
+   },
+   {
+    "m": 4,
+    "n": 128,
+    "cum_mean": 26.5,
+    "cum_med": 24.2,
+    "win": 92,
+    "month_mean": 4.2,
+    "month_med": 4.2,
+    "month_win": 73,
+    "sp_cum": 26.1
+   },
+   {
+    "m": 5,
+    "n": 128,
+    "cum_mean": 26.7,
+    "cum_med": 21.6,
+    "win": 95,
+    "month_mean": 0.0,
+    "month_med": -0.5,
+    "month_win": 48,
+    "sp_cum": 26.3
+   },
+   {
+    "m": 6,
+    "n": 128,
+    "cum_mean": 27.9,
+    "cum_med": 25.7,
+    "win": 89,
+    "month_mean": 1.2,
+    "month_med": 1.1,
+    "month_win": 59,
+    "sp_cum": 26.8
+   },
+   {
+    "m": 7,
+    "n": 128,
+    "cum_mean": 35.0,
+    "cum_med": 33.5,
+    "win": 96,
+    "month_mean": 5.5,
+    "month_med": 4.2,
+    "month_win": 70,
+    "sp_cum": 31.6
+   },
+   {
+    "m": 8,
+    "n": 128,
+    "cum_mean": 43.9,
+    "cum_med": 40.1,
+    "win": 97,
+    "month_mean": 7.0,
+    "month_med": 5.7,
+    "month_win": 75,
+    "sp_cum": 37.3
+   },
+   {
+    "m": 9,
+    "n": 128,
+    "cum_mean": 47.7,
+    "cum_med": 46.2,
+    "win": 98,
+    "month_mean": 2.5,
+    "month_med": 2.2,
+    "month_win": 64,
+    "sp_cum": 41.2
+   },
+   {
+    "m": 10,
+    "n": 128,
+    "cum_mean": 53.5,
+    "cum_med": 50.9,
+    "win": 98,
+    "month_mean": 3.6,
+    "month_med": 2.7,
+    "month_win": 66,
+    "sp_cum": 44.1
+   },
+   {
+    "m": 11,
+    "n": 128,
+    "cum_mean": 57.7,
+    "cum_med": 51.7,
+    "win": 98,
+    "month_mean": 3.1,
+    "month_med": 3.0,
+    "month_win": 70,
+    "sp_cum": 45.7
+   },
+   {
+    "m": 12,
+    "n": 128,
+    "cum_mean": 67.3,
+    "cum_med": 64.7,
+    "win": 98,
+    "month_mean": 6.0,
+    "month_med": 6.0,
+    "month_win": 87,
+    "sp_cum": 51.8
+   }
+  ]
+ },
+ "check_1y_corr": 1.0
+}
