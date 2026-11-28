@@ -24,7 +24,7 @@ async function init() {
     [D.risk, D.liq, D.macro, D.live, D.model, D.div] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json'), opt('model.json'), opt('div.json')]);
     try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${o.value === '3' ? ', 추천' : ''}${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
     D.risk = D.risk || {}; D.liq = D.liq || {};
-    showHealth(upd); showSurv(); showMonthly();
+    showHealth(upd); showSurv(); showMonthly(); showRules();
     opt('desc.json').then(d => { D.desc = d; return run() }).catch(e => console.log(e));
     run();
   } catch (e) { console.log(e); $('upd').textContent = '데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)'; }
@@ -102,6 +102,48 @@ function groupIndex(syms, from, to) {
   return out;
 }
 
+// ---------- 손실 줄이기 규칙 (10년 백테스트에서 2022년 이후 손실을 줄인 규칙만 카드에 표시) ----------
+function adoptedRules() { const o = {}; ((D.model && D.model.rules && D.model.rules.rows) || []).forEach(x => { if (x.adopt) o[x.id] = x }); return o }
+const pc0 = v => v == null ? '-' : Math.round(v * 100) + '%';
+function ruleAlerts(r, shock, asOf, RU, secDay, i0, b) {
+  const out = []; if (!Object.keys(RU).length) return out;
+  if (RU.idio) { // 회사 고유 악재 의심: 하루에 업종보다 크게 더 빠진 날
+    const sd = secDay(r.m.s), p = D.p[r.s]; let w = 0, wd = null;
+    for (let i = i0 + 1; i <= b; i++) { const m = sd[i - i0 - 1]; if (p[i] != null && p[i - 1] != null && m != null) { const v = (p[i] / p[i - 1] - 1 - m) * 100; if (v < w) { w = v; wd = D.dates[i] } } }
+    const fl = RU.idio.later_flag;
+    if (wd && w <= RU.idio.thr) out.push({ st: 'warn', txt: `⚠ 회사 고유 악재 의심 — ${wd.slice(5).replace('-', '/')} 하루에 업종보다 ${Math.abs(w).toFixed(0)}%p 더 급락 (2022년 이후 이런 종목 1년 내 최고가 회복 ${pc0(fl.rec)}, -20% 넘게 손실 ${pc0(fl.l20)} · 다른 종목 ${pc0(RU.idio.later.rec)}·${pc0(RU.idio.later.l20)}) — 회사 뉴스를 꼭 확인하세요` });
+  }
+  if (RU.tb_rev) { // 신호(악재 2달 뒤) 뒤 첫 실적에서 매출이 1년 전보다 줄면 매도 신호
+    const sig = addDays(shock, 61), f = D.fund[r.s];
+    if (asOf < sig) out.push({ st: 'info', txt: `신호일(${sig.slice(5).replace('-', '/')}) 뒤 첫 실적에서 매출이 1년 전보다 줄면 다음 날 매도 신호` });
+    else if (f) {
+      const k = f.q.findIndex(x => x[0] >= shock && addDays(x[0], 35) > sig); // 신호일 뒤에 발표됐을 분기
+      const rv = k >= 0 ? yoy(f.q.slice(0, k + 1), 1) : null;
+      if (k < 0 || rv == null) out.push({ st: 'info', txt: '신호 뒤 첫 실적 발표 전 — 매출이 1년 전보다 줄면 다음 날 매도 신호' });
+      else if (rv < 0) out.push({ st: 'bad', txt: `⚠ 첫 실적에서 매출 감소 (${f.q[k][0].slice(0, 7)} 분기 ${fmt(rv, 0)}) — 매도 신호` });
+      else out.push({ st: 'ok', txt: `신호 뒤 첫 실적 매출 ${fmt(rv, 0)} (${f.q[k][0].slice(0, 7)} 분기) — 매도 신호 없음` });
+    }
+  }
+  if (RU.st_time) out.push({ st: 'info', txt: '나눠 사기 권장: 신호일·1달 뒤·2달 뒤 1/3씩 (아래 \'손실 줄이기 규칙 검증\' 표 참고)' });
+  return out;
+}
+function showRules() {
+  const box = $('rulesTbl'); if (!box) return; const R = D.model && D.model.rules;
+  if (!R) { box.innerHTML = '<p class="note">다음 10년 백테스트 계산 뒤에 표시됩니다.</p>'; return }
+  const f1 = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(0) + '%';
+  const tr = (name, o, verdict, sub) => `<tr><td>${name}${sub ? `<br><small class="note">${sub}</small>` : ''}</td><td>${o.n}</td><td>${f1(o.mean)}</td><td>${f1(o.med)}</td><td>${pc0(o.rec)}</td><td>${f1(o.mdd)}</td><td>${f1(o.worst)}</td><td>${pc0(o.l20)}</td><td>${verdict}</td></tr>`;
+  const tbl = per => `<div style="overflow-x:auto"><table class="bt"><tr><th>규칙</th><th>건수</th><th>1년 평균</th><th>1년 중앙</th><th>1년 내 최고가 회복</th><th>평균 최대 하락</th><th>최악 하락</th><th>-20% 넘게 손실</th><th>판정</th></tr>` +
+    tr('<b>기준 (그냥 1년 보유)</b>', R.base[per], '') +
+    R.rows.map(x => {
+      let sub = '';
+      if (x.kind === 'filter') { const g = x[per + '_flag']; sub = `걸린 종목을 뺀 결과 · 걸린 종목만 ${g.n}건: 중앙 ${f1(g.med)}, 최고가 회복 ${pc0(g.rec)}, -20% 넘게 손실 ${pc0(g.l20)}` }
+      else if (x[per].stopped != null) sub = `${x[per].stopped}건에서 팔았음${x[per].stopped_then_rec != null ? ` · 그중 ${x[per].stopped_then_rec}건은 판 뒤 1년 안에 최고가 회복 또는 플러스` : ''}`;
+      return tr(esc(x.name), x[per], per === 'later' ? (x.adopt ? '<b style="color:var(--ok)">채택</b>' : `<span class="note">안 씀<br><small>${esc(x.why)}</small></span>`) : '', sub);
+    }).join('') + '</table></div>';
+  box.innerHTML = `<p class="note">손실을 줄이는 규칙들을 과거 자료로 시험했습니다. 기준값은 2021년 이전 자료로 정하고, <b>2022년 이후 ${R.base.later.n}건</b>으로 판정했습니다(${esc(R.sample)}). <b>채택 기준</b>: 손실(평균·최악 하락 또는 -20% 넘게 잃은 비율)이 줄면서 1년 중앙 수익률이 2%p 넘게 줄지 않을 것. 채택된 규칙만 종목 카드에 경고로 표시하고, 종목을 숨기지는 않습니다. 최대 하락 = 산 값 대비 1년 안 가장 낮았던 때. EPS 전망 10% 하향 매도 규칙은 ${esc(R.eps_cut)}.</p>` +
+    `<div style="font-weight:600;margin-top:8px">2022년 이후 (판정용)</div>${tbl('later')}<details style="margin-top:8px"><summary>2021년 이전 · 전체 기간 (참고)</summary><div style="font-weight:600;margin-top:6px">2021년 이전 (${R.base.early.n}건)</div>${tbl('early')}<div style="font-weight:600;margin-top:6px">전체 기간 (${R.base.full.n}건)</div>${tbl('full')}</details>`;
+}
+
 // ---------- 검색 (bt=true 이면 과거 검증용: 기준일 ai 시점의 정보만 사용) ----------
 function screen(shock, ai, bt, shockDD) {
   const dates = D.dates; const preFrom = addDays(shock, -60), postTo = addDays(shock, 60);
@@ -123,6 +165,11 @@ function screen(shock, ai, bt, shockDD) {
   const secMed = {}; for (const k in secDrops) secMed[k] = median(secDrops[k]);
   const minDrop = V('minDrop'), maxRec = V('maxRec'), minGap = V('minGap'), unkPass = C('unkPass');
   const asOf = dates[ai]; const res = []; let cand = 0, unkOut = 0;
+  const RU = adoptedRules(), sdCache = {};
+  const secDay = sec => { // 업종 하루 수익률 중간값 (악재 뒤 2달)
+    if (!sdCache[sec]) { const ms = Object.keys(D.meta).filter(s => D.meta[s].s === sec); const arr = []; for (let i = i0 + 1; i <= b; i++) { const rr = []; for (const s of ms) { const p = D.p[s]; if (p && p[i] != null && p[i - 1] != null) rr.push(p[i] / p[i - 1] - 1) } arr.push(median(rr)) } sdCache[sec] = arr }
+    return sdCache[sec];
+  };
   for (const r of rows) {
     if (r.dLow > -minDrop) continue;
     if (minGap > 0) { let g = 0; for (const [d, v] of (D.gaps[r.s] || [])) if (d >= shock && d <= postTo && v < g) { g = v; r.gd = d } r.gap = g; if (g > -minGap) continue }
@@ -186,7 +233,8 @@ function screen(shock, ai, bt, shockDD) {
     if (all.some(t => t.st === 'bad')) continue;
     // EPS 전망은 이 사이트가 기록을 쌓기 시작한 뒤부터만 있으므로, 기록이 없다고 빼지는 않고 ? 로만 표시
     if (!unkPass && all.some(t => t.st === 'unk' && t.name !== 'EPS전망')) { unkOut++; continue }
-    res.push({ ...r, drop: r.dLow, tests, extra, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
+    const alerts = bt ? [] : ruleAlerts(r, shock, asOf, RU, secDay, i0, b);
+    res.push({ ...r, drop: r.dLow, tests, extra, alerts, q: f.q, warn: all.filter(t => t.st === 'warn' || t.st === 'unk').length });
   }
   res.sort((x, y) => (y.prob ?? 0) - (x.prob ?? 0) || y.score - x.score || x.warn - y.warn || y.up - x.up);
   return { res, cand, secMed, i0, b, unkOut };
@@ -265,6 +313,7 @@ async function run() {
    <div class="sell">💰 매도 적정가 · 1차 <b>$${r.tg.t1.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t1, r.now), 0)}, 낙폭 절반 회복)</small> · 2차 <b>$${r.tg.t2.toFixed(2)}</b> <small>(${fmt(pct(r.tg.t2, r.now), 0)}, 악재 전 최고가)</small>${r.tg.per && r.tg.per > r.now ? ` · 참고 <b>$${r.tg.per.toFixed(2)}</b> <small>(평소 PER 기준)</small>` : ''}</div>
    <div class="px">${r.m.s} · ${esc(r.m.i)} · ${D.div && D.div[r.s] ? `연 배당률 <b>${(D.div[r.s] / r.now * 100).toFixed(2)}%</b> <small>(최근 1년 주당 $${D.div[r.s].toFixed(2)})</small>` : '배당 없음'}<br>현재가 <b>$${r.now.toFixed(2)}</b> ${r.liveQ ? `<small>(${r.liveQ[2]} ${r.liveQ[1]} 미국 동부시간, 약 15분 지연 · 최근 일봉 종가 $${r.close.toFixed(2)})</small>` : `<small>(${D.dates[D.dates.length - 1].slice(5)} 종가)</small>`}<br>악재 전 최고 $${r.pre.toFixed(2)} (${r.hd.slice(5)}) → 최저 $${r.low.toFixed(2)} (${r.ld.slice(5)})${r.q ? ` · 실적 기준 분기 ${r.q.slice(0, 7)}` : ''}${r.gap ? ` · 최대 갭하락 ${r.gap}% (${r.gd.slice(5)})` : ''}</div>
    <div class="badges"><span class="b ${r.score >= 3 ? 'ok' : r.score === 2 ? 'warn' : 'bad'}" style="font-weight:700">회복 가능성 ${r.score}/4</span>${r.prob != null ? `<span class="b info">코로나 제외 과거 ${r.probLv === 'cell' ? '같은 점수·비슷한 회복 정도' : '같은 점수'} ${r.probN}건 중 ${r.probH}건 1년 내 최고가 회복 · 1년 뒤 상승 ${Math.round(r.probU * 100)}%${r.probN < 30 ? ' (표본 적음)' : ''}</span>` : ''}${r.sc.map(x => `<span class="b ${x.hit ? 'ok' : 'info'}">${x.hit ? '✓' : '·'} ${x.txt}</span>`).join('')}${peakTxt(r)}</div>
+   ${r.alerts && r.alerts.length ? `<div class="badges sec2">${r.alerts.map(t => `<span class="b ${t.st}"${t.st !== 'info' ? ' style="font-weight:700"' : ''}>${esc(t.txt)}</span>`).join('')}</div>` : ''}
    <div class="badges sec2">${r.tests.map(badge).join('')}</div>
    <div class="badges sec2">${r.extra.map(badge).join('')}</div>
    <details class="more"><summary>최근 회사 뉴스</summary>${news || '<div class="note">저장된 뉴스 없음</div>'}

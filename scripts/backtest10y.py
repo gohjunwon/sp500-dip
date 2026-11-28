@@ -376,7 +376,13 @@ def build_model(picks, min_n=20, surv=None):
     for s in range(5):
         mon[str(s)] = monthly(x[x.score == s])
     yrs = sorted(x.shock.str[:4].unique())
-    C.save("model.json", {"table": tab, "group": grp, "thr": thr, "peak": peak, "monthly": mon, "bins": [60, 70, 80, 90],
+    try:  # 손실 줄이기 규칙 검증 (앞 기간에서 문턱을 고르고 2022년 이후로 판정)
+        import rules_study
+        rules = rules_study.study(picks)
+    except Exception as e:
+        print("rules fail", e)
+        rules = None
+    C.save("model.json", {"rules": rules, "table": tab, "group": grp, "thr": thr, "peak": peak, "monthly": mon, "bins": [60, 70, 80, 90],
                           "n": int(len(x)), "n_all": n_all, "n_covid": n_cov, "min_n": min_n,
                           "years": f"{yrs[0]}~{yrs[-1]}", "base": round(float(x.hit.mean()), 3),
                           "desc": "코로나 기간 제외, 악재 2달 뒤 후보가 1년 안에 악재 전 최고가를 회복한 실제 비율",
