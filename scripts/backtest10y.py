@@ -221,6 +221,12 @@ def main():
                 row["peak1y"] = round(float(fut.max() / e_px - 1) * 100, 1)  # 1년 안 최고 수익
                 row["peak_days_low"] = int(df.index.get_loc(pk) - low_i)  # 악재 저점 → 1년 안 고점 (거래일)
                 row["low_date"] = dates[low_i].strftime("%Y-%m-%d")
+            mret = []  # 신호일(진입일) 뒤 1~12개월(21거래일 단위) 수익률
+            for k in range(1, 13):
+                t = entry + 21 * k
+                p1 = df[s].iloc[:t + 1].dropna() if t <= last else None
+                mret.append(round(float(p1.iloc[-1] / e_px - 1) * 100, 1) if p1 is not None and not p1.empty else None)
+            row["m"] = mret
             for k, n in H.items():
                 t = entry + n
                 if t > last:
@@ -291,8 +297,21 @@ def build_model(picks, min_n=20, surv=None):
             v = v if len(v) >= min_n else allp
             if len(v):
                 peak[s] = {"n": int(len(v)), "p25": int(v.quantile(.25)), "p50": int(v.median()), "p75": int(v.quantile(.75)), "lv": lv}
+    # 월별 확률: 신호일 뒤 1~12개월 각 달의 누적 최고가 회복 확률, 신호일보다 높을 확률, 평균·중앙 수익률
+    def monthly(c):
+        out = []
+        for k in range(1, 13):
+            r = pd.Series([v[k - 1] if isinstance(v, list) and len(v) >= k else None for v in c["m"]] if "m" in c else [], dtype=float).dropna()
+            hd = c.hit_days
+            out.append({"k": k, "n": int(len(r)), "rec": round(float(((hd.notna()) & (hd <= 21 * k)).mean()), 3) if len(c) else None,
+                        "up": round(float((r > 0).mean()), 3) if len(r) else None,
+                        "avg": round(float(r.mean()), 1) if len(r) else None, "med": round(float(r.median()), 1) if len(r) else None})
+        return out
+    mon = {"all": monthly(x), "s3": monthly(x[x.score >= 3])}
+    for s in range(5):
+        mon[str(s)] = monthly(x[x.score == s])
     yrs = sorted(x.shock.str[:4].unique())
-    C.save("model.json", {"table": tab, "group": grp, "thr": thr, "peak": peak, "bins": [60, 70, 80, 90],
+    C.save("model.json", {"table": tab, "group": grp, "thr": thr, "peak": peak, "monthly": mon, "bins": [60, 70, 80, 90],
                           "n": int(len(x)), "n_all": n_all, "n_covid": n_cov, "min_n": min_n,
                           "years": f"{yrs[0]}~{yrs[-1]}", "base": round(float(x.hit.mean()), 3),
                           "desc": "코로나 기간 제외, 악재 2달 뒤 후보가 1년 안에 악재 전 최고가를 회복한 실제 비율",

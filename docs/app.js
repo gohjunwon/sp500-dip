@@ -24,7 +24,7 @@ async function init() {
     [D.risk, D.liq, D.macro, D.live, D.model, D.div] = await Promise.all([opt('risk.json'), opt('liq.json'), opt('macro.json'), opt('live.json'), opt('model.json'), opt('div.json')]);
     try { if (D.model && D.model.thr) { const sel = document.getElementById('vScore'); for (const o of sel.options) { const t = D.model.thr[o.value]; if (!t || o.value === '0') continue; o.textContent = `${o.value === '4' ? '4점만' : o.value + '점 이상'} (코로나 제외 ${t.n}건: 1년 뒤 상승 ${Math.round(t.u * 100)}%, 최고가 회복 ${Math.round(t.p * 100)}%${o.value === '3' ? ', 추천' : ''}${t.n < 30 ? ', 표본 적음' : ''})` } } } catch (e) { }
     D.risk = D.risk || {}; D.liq = D.liq || {};
-    showHealth(upd); showSurv();
+    showHealth(upd); showSurv(); showMonthly();
     opt('desc.json').then(d => { D.desc = d; run() });
     run();
   } catch (e) { console.log(e); $('upd').textContent = '데이터 준비 중 (첫 자동 수집이 끝나면 표시됩니다)'; }
@@ -274,7 +274,18 @@ async function run() {
 function peakTxt(r) {
   const pk = D.model && D.model.peak && D.model.peak[r.score]; if (!pk || !r.ld) return '';
   const td = n => addDays(r.ld, Math.round(n * 365 / 252)).slice(2).replace(/-/g, '.');
-  return `<span class="b info" title="추정일 뿐입니다. 표본 ${pk.n}건${pk.lv === 'all' ? '(같은 점수 표본이 적어 전체 사용)' : ''}">예상 고점 시기(과거 ${pk.n}건 추정) ${td(pk.p25)}~${td(pk.p75)} · 가운데 ${td(pk.p50)}</span>`;
+  const mo = D.model.monthly && D.model.monthly[r.score], pc = v => v == null ? '-' : Math.round(v * 100) + '%';
+  const mtxt = mo && mo[0] && mo[0].n >= 10 ? `<span class="b info" title="같은 점수(${r.score}점) 과거 ${mo[11].n}건, 신호일(악재 2달 뒤) 기준 누적 회복 확률">최고가 회복 확률 3개월 ${pc(mo[2].rec)} · 6개월 ${pc(mo[5].rec)} · 12개월 ${pc(mo[11].rec)}</span>` : '';
+  return `<span class="b info" title="추정일 뿐입니다. 표본 ${pk.n}건${pk.lv === 'all' ? '(같은 점수 표본이 적어 전체 사용)' : ''}">예상 고점 시기(과거 ${pk.n}건 추정) ${td(pk.p25)}~${td(pk.p75)} · 가운데 ${td(pk.p50)}</span>${mtxt}`;
+}
+// 월별 확률 표 (신호일 = 악재 2달 뒤 진입일, 코로나 제외, 그 당시 구성종목 기준)
+function showMonthly() {
+  const box = $('monTbl'); if (!box) return; const M = D.model && D.model.monthly;
+  if (!M) { box.innerHTML = '<p class="note">월별 확률은 다음 10년 백테스트 계산 뒤에 표시됩니다.</p>'; return }
+  const pc = v => v == null ? '-' : Math.round(v * 100) + '%', f1 = v => v == null ? '-' : (v > 0 ? '+' : '') + v.toFixed(0) + '%';
+  const g = (o) => `<td>${pc(o.rec)}</td><td>${pc(o.up)}</td><td>${f1(o.avg)}<br><small>${f1(o.med)}</small></td>`;
+  box.innerHTML = `<div style="overflow-x:auto"><table class="bt mon"><tr><th rowspan="2">신호 후</th><th colspan="3">기본 조건 (3점 이상, ${M.s3[11].n}건)</th><th colspan="3">조건 통과 전체 (${M.all[11].n}건)</th></tr><tr><th>최고가 회복</th><th>신호일보다 ↑</th><th>평균<br><small>중앙</small></th><th>최고가 회복</th><th>신호일보다 ↑</th><th>평균<br><small>중앙</small></th></tr>` +
+    M.all.map((o, i) => `<tr${[2, 5, 11].includes(i) ? ' style="font-weight:600"' : ''}><td>${o.k}개월</td>${g(M.s3[i])}${g(o)}</tr>`).join('') + '</table></div>';
 }
 
 // ---------- 자료 상태 경고 · 생존편향 안내 ----------
